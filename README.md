@@ -11,25 +11,26 @@ list of the quietest channels.
   BOOT/ENTER). Nothing else is needed.
 
 ## Building
+This is a standard Arduino sketch and builds in any Arduino-compatible
+environment (Arduino IDE, arduino-cli, or an IDE plug-in that uses the Arduino
+build system).
+
 The sketch is in the `FPV Channel Scanner/` folder. Its name must match the
 `.ino`, so keep it as is.
 
-Requires the **esp32 by Espressif** board package, **3.3.x** (tested with
-3.3.12). No extra libraries.
+Requires the **esp32 by Espressif** board package, version **3.3.x**. No extra
+libraries.
 
-Board settings (Arduino IDE *Tools* menu, or the Visual Micro board options):
+Board settings:
 - Board: **ESP32C5 Dev Module**
 - USB CDC On Boot: **Enabled** (serial readout over USB-C)
 - PSRAM: **Disabled** (not used; avoids a harmless boot message)
 - Everything else at defaults.
 
-**Visual Studio + Visual Micro:** open `FPV Channel Scanner/FPV Channel Scanner.ino` (or create a
-Visual Micro project in this folder), select the board and options above, then
-build and upload. The `.ino` holds only `setup()` and `loop()`; everything else
-is in the `.cpp` / `.h` files next to it, which are compiled automatically.
-
-**Arduino IDE:** open `FPV Channel Scanner/FPV Channel Scanner.ino`; the other
-files appear as tabs.
+Open `FPV Channel Scanner/FPV Channel Scanner.ino`, select the board and
+options above, then build and upload. The `.ino` holds only `setup()` and
+`loop()`; everything else is in the `.cpp` / `.h` files next to it, which are
+compiled automatically.
 
 ## Source layout
 All in `FPV Channel Scanner/`:
