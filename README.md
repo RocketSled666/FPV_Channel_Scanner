@@ -1,19 +1,58 @@
 # FPV Channel Scanner — Waveshare ESP32-C5-LCD-2.73
 
 Scans the 48 analog FPV channels (bands A, B, E, F, Raceband, Lowband) with the
-ESP32-C5's own 5 GHz radio and shows them as a 6x8 grid. Each square's
-brightness is the channel's power above its learned noise floor. The strongest
-channel gets a white border and is named in the footer.
+ESP32-C5's own 5 GHz radio, with no extra receiver hardware. Four pages show
+live activity, a per-band spectrum, long-term noise per channel and a ranked
+list of the quietest channels.
+
+## Hardware
+- [Waveshare ESP32-C5-LCD-2.73](https://docs.waveshare.com/ESP32-C5-LCD-2.73):
+  ESP32-C5, 2.73" 320x320 ILI9488 SPI LCD, three buttons (KEY_L, KEY_R,
+  BOOT/ENTER). Nothing else is needed.
 
 ## Building
-The sketch is in the `FPV Channel Scanner/` folder (the folder name must match
-the `.ino`).
+The sketch is in the `FPV Channel Scanner/` folder. Its name must match the
+`.ino`, so keep it as is.
 
-## Arduino IDE setup
-- Boards Manager: **esp32 by Espressif, 3.3.x** (compiled against 3.3.12)
+Requires the **esp32 by Espressif** board package, **3.3.x** (tested with
+3.3.12). No extra libraries.
+
+Board settings (Arduino IDE *Tools* menu, or the Visual Micro board options):
 - Board: **ESP32C5 Dev Module**
-- USB CDC On Boot: **Enabled** (to see the serial readout over USB-C)
-- Everything else can stay at defaults. No extra libraries needed.
+- USB CDC On Boot: **Enabled** (serial readout over USB-C)
+- PSRAM: **Disabled** (not used; avoids a harmless boot message)
+- Everything else at defaults.
+
+**Visual Studio + Visual Micro:** open `FPV Channel Scanner/FPV Channel Scanner.ino` (or create a
+Visual Micro project in this folder), select the board and options above, then
+build and upload. The `.ino` holds only `setup()` and `loop()`; everything else
+is in the `.cpp` / `.h` files next to it, which are compiled automatically.
+
+**Arduino IDE:** open `FPV Channel Scanner/FPV Channel Scanner.ino`; the other
+files appear as tabs.
+
+## Source layout
+All in `FPV Channel Scanner/`:
+
+| File | Contents |
+|---|---|
+| `FPV Channel Scanner.ino` | `setup()` and `loop()` |
+| `Config.h` | Pins, tuning constants, shared types, frequency table, colors, radio register access |
+| `Scanner.h` | Shared declarations: all global variables and every function |
+| `State.cpp` | Global state shared between pages |
+| `Display.cpp` | ILI9488 driver, text drawing, IO expander (LCD reset / backlight) |
+| `Input.cpp` | Buttons |
+| `Radio.cpp` | Tuning, noise-floor measurement, RSSI fallback, start-up, timing report |
+| `Bands.cpp` | Band display order (lowest frequency first) |
+| `Screen Common.cpp` | Drawing shared by pages, pop-up, page navigation |
+| `Page Activity.cpp` | FPV Channel Activity page and the channel sweep |
+| `Page Spectrum.cpp` | Spectrum page |
+| `Page Noise.cpp` | FPV Channel Noise page and the long-term statistics |
+| `Page Quietest.cpp` | Quietest Channels page |
+| `font5x7.h` | 5x7 bitmap font |
+
+Each source file's header carries the revision number; see `CHANGELOG.md`
+for what changed in each revision.
 
 ## Screens
 Pages in KEY_R order: Activity -> Spectrum -> Noise -> Quietest -> Activity.
