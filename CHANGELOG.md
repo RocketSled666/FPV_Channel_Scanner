@@ -9,7 +9,7 @@ Revision numbers match the `Revision:` line in the source headers.
   Reached only with KEY_R from Quietest Channels; KEY_L goes back to it.
 
 ## Revision 34
-- Split the single sketch into modules for GitHub and Visual Micro: the .ino
+- Split the single sketch into modules for easier maintenance: the .ino
   now holds only `setup()` and `loop()`; config, shared declarations, state,
   display, input, radio, bands, shared screen code and one file per page.
 - No behavior changes.
