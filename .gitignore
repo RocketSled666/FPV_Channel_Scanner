@@ -1,0 +1,28 @@
+# Build output
+build/
+Build/
+Release/
+Debug/
+*.elf
+*.bin
+*.map
+*.hex
+
+# Visual Studio / Visual Micro
+.vs/
+__vm/
+*.vcxproj.user
+*.suo
+*.user
+*.VC.db
+*.VC.opendb
+ipch/
+
+# Arduino IDE / VS Code
+.vscode/
+*.code-workspace
+
+# OS files
+.DS_Store
+Thumbs.db
+desktop.ini
