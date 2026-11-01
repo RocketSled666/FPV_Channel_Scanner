@@ -1,6 +1,6 @@
 /*
  * FPV Channel Scanner - Config.h
- * Revision: 34
+ * Revision: 35
  *
  * Hardware pins, tuning constants, shared types, frequency table, colors
  * and the undocumented ESP32-C5 radio access used by the scanner.
@@ -17,8 +17,10 @@
 // ---------------------------------------------------------------- types (keep above all functions)
 struct RGB { uint8_t r, g, b; };
 // Pages. MODE_GRID is "FPV Channel Activity", MODE_ACTIVITY is "FPV Channel
-// Noise", MODE_QUIET is "Quietest Channels". Order is set by pageAfter().
-enum ScreenMode { MODE_GRID = 0, MODE_SPECTRUM = 1, MODE_ACTIVITY = 2, MODE_QUIET = 3 };
+// Noise", MODE_QUIET is "Quietest Channels", MODE_HDZERO is "Quietest for
+// HDZero". Order is set by pageAfter().
+enum ScreenMode { MODE_GRID = 0, MODE_SPECTRUM = 1, MODE_ACTIVITY = 2, MODE_QUIET = 3,
+                  MODE_HDZERO = 4 };
 struct StallStat {        // frequencies whose measurement timed out
   uint16_t mhz;
   uint32_t count;
@@ -86,6 +88,20 @@ struct ButtonState {
 static const char BAND_NAME[NUM_BANDS] = { 'A', 'B', 'E', 'F', 'R', 'L' };
 static const char * const BAND_LONG[NUM_BANDS] = { "Boscam A", "Boscam B", "Boscam E",
                                             "Fatshark", "Raceband", "Lowband" };
+// Channels an HDZero VTX can be set to (same band order as FPV_MHZ):
+// R1-R8, E1, F1, F2, F4, plus L1-L8 once low band is unlocked on the VTX.
+// Source: HDZero docs, VTX "Getting Started" (docs.hd-zero.com/vtx-general):
+// "All VTXes support R1-R8, E1, F1, F2 and F4 channels. You will get an
+// additional 8 channels L1-L8 if you unlock the low band."
+static const bool HDZERO_OK[NUM_BANDS][NUM_CH] = {
+  { 0, 0, 0, 0, 0, 0, 0, 0 },  // A  none
+  { 0, 0, 0, 0, 0, 0, 0, 0 },  // B  none
+  { 1, 0, 0, 0, 0, 0, 0, 0 },  // E  E1
+  { 1, 1, 0, 1, 0, 0, 0, 0 },  // F  F1 F2 F4
+  { 1, 1, 1, 1, 1, 1, 1, 1 },  // R  R1-R8
+  { 1, 1, 1, 1, 1, 1, 1, 1 },  // L  L1-L8 (low band unlocked)
+};
+
 static const uint16_t FPV_MHZ[NUM_BANDS][NUM_CH] = {
   { 5865, 5845, 5825, 5805, 5785, 5765, 5745, 5725 },  // A  Boscam A
   { 5733, 5752, 5771, 5790, 5809, 5828, 5847, 5866 },  // B  Boscam B

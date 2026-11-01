@@ -55,9 +55,9 @@ Each source file's header carries the revision number; see `CHANGELOG.md`
 for what changed in each revision.
 
 ## Screens
-Pages in KEY_R order: Activity -> Spectrum -> Noise -> Quietest -> Activity.
-KEY_L goes back: Activity -> Noise -> Spectrum -> Activity, and Quietest ->
-Noise. Quietest Channels is only reached with KEY_R from Channel Noise, and
+Pages in KEY_R order: Activity -> Spectrum -> Noise -> Quietest -> HDZero ->
+Activity. KEY_L goes back: Activity -> Noise -> Spectrum -> Activity, and
+HDZero -> Quietest -> Noise. Quietest Channels is only reached with KEY_R from Channel Noise, and
 only once there are 60 s of noise history; before that a "Wait longer"
 pop-up shows and the page stays put.
 - **FPV Channel Activity** (grid): all 48 channels; square brightness = power
@@ -80,12 +80,16 @@ pop-up shows and the page stays put.
   history, listed quietest first (left column 1-8, right column 9-16), each
   with band/channel, frequency, average dB above the floor and busy %. It
   keeps measuring, so the list stays live.
+- **Quietest for HDZero**: the same list, limited to channels an HDZero VTX
+  can be set to: R1-R8, E1, F1, F2, F4, and L1-L8 once low band is unlocked
+  on the VTX ([HDZero VTX docs](https://docs.hd-zero.com/vtx-general)).
+  Reached with KEY_R from Quietest Channels.
 
 ## Buttons
 - **KEY_R / KEY_L**: next / previous page (order above).
 - **ENTER (short)** on the grid: cycle the span (15-40 dB, default 15). It sets
   the grid brightness scale and the spectrum graph height.
-- **ENTER (short)** on Channel Noise or Quietest Channels: clear the history
+- **ENTER (short)** on Channel Noise or either Quietest page: clear the history
   and start over.
   (Re-learning the noise floor also clears it.)
 - **ENTER (short)** on the spectrum: select the next band button.

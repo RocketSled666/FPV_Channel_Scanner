@@ -2,6 +2,12 @@
 
 Revision numbers match the `Revision:` line in the source headers.
 
+## Revision 35
+- New "Quietest for HDZero" page after Quietest Channels: the same ranked
+  list, limited to channels an HDZero VTX can use (R1-R8, E1, F1, F2, F4,
+  and L1-L8 with low band unlocked), per the HDZero VTX documentation.
+  Reached only with KEY_R from Quietest Channels; KEY_L goes back to it.
+
 ## Revision 34
 - Split the single sketch into modules for GitHub and Visual Micro: the .ino
   now holds only `setup()` and `loop()`; config, shared declarations, state,

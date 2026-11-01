@@ -1,14 +1,20 @@
 /*
  * FPV Channel Scanner - Page Quietest.cpp
- * Revision: 34
+ * Revision: 35
  *
- * Quietest Channels page: the QUIET_LIST_N quietest channels from the
- * Channel Noise history, in two columns of 8: left column 1-8, right
- * column 9-16. Measurement keeps running on this page, so the history
- * and the list stay live.
+ * Quietest Channels and Quietest for HDZero pages: the QUIET_LIST_N
+ * quietest channels from the Channel Noise history, in two columns of 8:
+ * left column 1-8, right column 9-16. The HDZero page lists only channels
+ * an HDZero VTX can use (HDZERO_OK in Config.h). Measurement keeps running
+ * on these pages, so the history and the lists stay live.
  */
 
 #include "Scanner.h"
+
+// True on either quietest-list page.
+bool quietPage() {
+  return mode == MODE_QUIET || mode == MODE_HDZERO;
+}
 
 void quietInvalidate() {
   for (int i = 0; i < QUIET_LIST_N; i++) { quietShownIdx[i] = -2; quietShownTenths[i] = -1; quietShownBusy[i] = -1; }
@@ -16,7 +22,7 @@ void quietInvalidate() {
 
 void quietDrawStatic() {
   lcdFill(0, 0, LCD_W, LCD_H, 0, 0, 0);
-  lcdText(4, 4, "Quietest Channels", 2, C_ACC, C_BG);
+  lcdText(4, 4, mode == MODE_HDZERO ? "Quietest for HDZero" : "Quietest Channels", 2, C_ACC, C_BG);
   lcdFillC(QUIET_COL_W, QUIET_Y0 - 2, 1, 8 * QUIET_PITCH, C_MARK);   // column divider
   quietInvalidate();
   quietFooterDirty = true;
@@ -46,8 +52,15 @@ void quietDraw(bool learning, uint32_t learnStart) {
   bool ready = !learning && actLastMs != 0;
   int order[NUM_BANDS * NUM_CH];
   actRankOrder(order);
+  // On the HDZero page, keep only channels an HDZero VTX can use.
+  int list[NUM_BANDS * NUM_CH], nList = 0;
+  for (int i = 0; i < NUM_BANDS * NUM_CH; i++) {
+    int k = order[i];
+    if (mode == MODE_HDZERO && !HDZERO_OK[k / NUM_CH][k % NUM_CH]) continue;
+    list[nList++] = k;
+  }
   for (int i = 0; i < QUIET_LIST_N; i++) {
-    int idx = ready ? order[i] : -1;
+    int idx = (ready && i < nList) ? list[i] : -1;
     int tenths = -1, busy = -1;
     if (idx >= 0) {
       tenths = (int)lroundf(actAvg(idx / NUM_CH, idx % NUM_CH) * 10);
@@ -71,6 +84,8 @@ void quietDraw(bool learning, uint32_t learnStart) {
   if (!learning && quietFooterDirty) {
     learnShownPct = -1; scanAnimY = -1;
     lcdFill(0, FOOT_Y, LCD_W, LCD_H - FOOT_Y, 0, 0, 0);
+    if (ready && mode == MODE_HDZERO)
+      lcdText(4, FOOT_Y + 6, "HDZero: R1-8, L1-8, E1, F1, F2, F4", 1, C_DIM, C_BG);
     if (ready) lcdText(4, FOOT_Y + 20, "1 = quietest", 1, C_DIM, C_BG);
     else       drawScanning(FOOT_Y + 2);
     drawSpanLabel();

@@ -1,6 +1,6 @@
 /*
  * FPV Channel Scanner - Screen Common.cpp
- * Revision: 34
+ * Revision: 35
  *
  * Drawing shared by several pages (grid frame, Scanning dots, span /
  * history label, learning progress, title status), the pop-up, and
@@ -48,7 +48,7 @@ void drawScanning(int y) {
 // "SPAN nndB" at the bottom right; same screen position on both pages.
 void drawSpanLabel() {
   char s[20];
-  if (mode == MODE_ACTIVITY || mode == MODE_QUIET) {
+  if (mode == MODE_ACTIVITY || quietPage()) {
     uint32_t t = (uint32_t)actTrackedS;    // fixed width so no leftovers when it changes
     if (t < 3600) snprintf(s, sizeof(s), "History %2lum%02lus", (unsigned long)(t / 60), (unsigned long)(t % 60));
     else          snprintf(s, sizeof(s), "History %2luh%02lum", (unsigned long)(t / 3600), (unsigned long)(t / 60 % 60));
@@ -92,13 +92,15 @@ ScreenMode pageAfter(ScreenMode m, int dir) {
       case MODE_GRID:     return MODE_SPECTRUM;
       case MODE_SPECTRUM: return MODE_ACTIVITY;
       case MODE_ACTIVITY: return MODE_QUIET;
-      default:            return MODE_GRID;       // from Quietest
+      case MODE_QUIET:    return MODE_HDZERO;
+      default:            return MODE_GRID;       // from Quietest for HDZero
     }
   }
   switch (m) {
-    case MODE_GRID:     return MODE_ACTIVITY;     // skips Quietest
+    case MODE_GRID:     return MODE_ACTIVITY;     // skips both quietest lists
     case MODE_SPECTRUM: return MODE_GRID;
     case MODE_ACTIVITY: return MODE_SPECTRUM;
+    case MODE_HDZERO:   return MODE_QUIET;
     default:            return MODE_ACTIVITY;     // from Quietest
   }
 }
@@ -121,7 +123,7 @@ void enterMode(ScreenMode m) {
     gridDrawStatic();
   } else if (mode == MODE_ACTIVITY) {
     actDrawStatic();
-  } else if (mode == MODE_QUIET) {
+  } else if (quietPage()) {
     quietDrawStatic();
   } else {
     specSetBand(specBand);

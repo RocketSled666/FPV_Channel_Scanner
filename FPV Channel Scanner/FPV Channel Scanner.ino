@@ -1,6 +1,6 @@
 /*
  * FPV Channel Scanner
- * Revision: 34
+ * Revision: 35
  * Board : Waveshare ESP32-C5-LCD-2.73 (ESP32-C5, ILI9488 320x320 SPI LCD)
  * Core  : Arduino-ESP32 3.3.x  (Tools > Board > "ESP32C5 Dev Module")
  *
@@ -17,7 +17,7 @@
  * found by disassembling Espressif's libphy.a for the ESP32-C5. They may
  * change between core versions. Readings are relative, not calibrated dBm.
  *
- * Four pages, in KEY_R order:
+ * Five pages, in KEY_R order:
  *   FPV CHANNEL ACTIVITY (grid) - all 48 FPV channels, square brightness =
  *               power above floor right now
  *   SPECTRUM  - continuous sweep across one band in 4 MHz steps
@@ -30,14 +30,18 @@
  *               Reached only by KEY_R from Channel Noise, once there is at
  *               least 60 s of history; before that a "Wait longer" pop-up
  *               shows and the page doesn't change.
+ *   QUIETEST FOR HDZERO - the same list, limited to channels an HDZero VTX
+ *               can use: R1-R8, E1, F1, F2, F4 and L1-L8 (low band unlocked).
+ *               Reached only by KEY_R from Quietest Channels.
  *
- *   KEY_R: Activity -> Spectrum -> Noise -> Quietest -> Activity
- *   KEY_L: Activity -> Noise -> Spectrum -> Activity;  Quietest -> Noise
+ *   KEY_R: Activity -> Spectrum -> Noise -> Quietest -> HDZero -> Activity
+ *   KEY_L: Activity -> Noise -> Spectrum -> Activity;
+ *          HDZero -> Quietest -> Noise
  *
  * Buttons:
  *   KEY_L / KEY_R (GPIO2 / GPIO3) = previous / next page (order above)
  *   ENTER (short) on GRID     = cycle the span (dB)
- *   ENTER (short) on NOISE or QUIETEST = clear the noise history
+ *   ENTER (short) on NOISE or either QUIETEST page = clear the noise history
  *   ENTER (short) on SPECTRUM = select the next band button under the graph
  *   ENTER (hold 0.7 s)        = re-learn the noise floor (do it with VTXs off)
  *
@@ -118,7 +122,8 @@ void loop() {
     } else {
       enterMode(next);
       Serial.printf("page -> %s\n", mode == MODE_GRID ? "channel activity" : mode == MODE_ACTIVITY ? "channel noise" :
-                                mode == MODE_QUIET ? "quietest channels" : "spectrum");
+                                mode == MODE_QUIET ? "quietest channels" :
+                                mode == MODE_HDZERO ? "quietest for HDZero" : "spectrum");
     }
   }
   if (popupUntilMs && (int32_t)(millis() - popupUntilMs) >= 0) {
@@ -130,7 +135,7 @@ void loop() {
     evEnterLong = false;
     if (mode == MODE_GRID) { gridResetFloor(); gridInvalidate(); gridFooterDirty = true; drawTitleStatus(0, true); }
     else if (mode == MODE_ACTIVITY) { gridResetFloor(); actInvalidate(); actFooterDirty = true; drawTitleStatus(0, true); }
-    else if (mode == MODE_QUIET) { gridResetFloor(); quietInvalidate(); quietFooterDirty = true; drawTitleStatus(0, true); }
+    else if (quietPage()) { gridResetFloor(); quietInvalidate(); quietFooterDirty = true; drawTitleStatus(0, true); }
     else { specFloorValid[specBand] = false; specNoSeedOnce = true; specSetBand(specBand); specDrawStatic(); }
   }
   if (evEnterShort) {
@@ -140,7 +145,7 @@ void loop() {
       gridInvalidate(); gridFooterDirty = true;
     } else if (mode == MODE_ACTIVITY) {     // restart the activity sums
       actClear(); actInvalidate(); actFooterDirty = true;
-    } else if (mode == MODE_QUIET) {        // same history as the noise page
+    } else if (quietPage()) {               // same history as the noise page
       actClear(); quietInvalidate(); quietFooterDirty = true;
     } else {                                // next band button
       specSetBand(nextBandInButtonOrder(specBand));

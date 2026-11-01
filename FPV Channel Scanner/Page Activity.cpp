@@ -1,6 +1,6 @@
 /*
  * FPV Channel Scanner - Page Activity.cpp
- * Revision: 34
+ * Revision: 35
  *
  * FPV Channel Activity page (the live grid) and the grid sweep that
  * also feeds the Channel Noise and Quietest Channels pages.
@@ -110,7 +110,7 @@ void gridSweep() {
   uint32_t tDraw0 = micros();
   if (mode == MODE_ACTIVITY) {
     if (!popupUntilMs) actDraw(learning, learnStart);   // don't draw over the pop-up
-  } else if (mode == MODE_QUIET) {
+  } else if (quietPage()) {
     quietDraw(learning, learnStart);
   } else {
   int pb = -1, pc = -1; float best = -1e9f;
@@ -159,13 +159,13 @@ void gridSweep() {
     uint32_t sweepsThisPeriod = rateSweeps;
     rateSweeps = 0; lastRateMs = now;
     drawTitleStatus(sps, learning);
-    if ((mode == MODE_ACTIVITY || mode == MODE_QUIET) && !learning) drawSpanLabel();   // history time
+    if ((mode == MODE_ACTIVITY || quietPage()) && !learning) drawSpanLabel();   // history time
     if (serialHasRoom(1600)) {
       printTiming(sweepsThisPeriod);
       printStalls();
       Serial.printf("grid sweep %lu  %.1f/s  timeouts=%lu\n", (unsigned long)gridSweeps,
                     sps, (unsigned long)g_nfTimeouts);
-      bool noiseDump = (mode == MODE_ACTIVITY || mode == MODE_QUIET);
+      bool noiseDump = (mode == MODE_ACTIVITY || quietPage());
       if (noiseDump)
         Serial.printf("  noise, %lu s of history (avg dB above floor / %% busy / peak dB):\n",
                       (unsigned long)actTrackedS);

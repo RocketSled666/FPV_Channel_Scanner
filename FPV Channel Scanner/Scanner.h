@@ -1,6 +1,6 @@
 /*
  * FPV Channel Scanner - Scanner.h
- * Revision: 34
+ * Revision: 35
  *
  * Shared declarations: every global variable (defined in State.cpp) and
  * every function, grouped by the file that defines it. Each .cpp file
@@ -149,6 +149,7 @@ void actDrawFooter(int pb, int pc, float excessDb);
 void actDraw(bool learning, uint32_t learnStart);
 
 // ---------------------------------------------------------------- Page Quietest.cpp
+bool quietPage();
 void quietInvalidate();
 void quietDrawStatic();
 void quietDrawEntry(int slot, int idx);
