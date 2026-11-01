@@ -2,6 +2,50 @@
 
 Revision numbers match the `Revision:` line in the source headers.
 
+## Revision 46
+- Start-up splash screen from Splash.PNG, shown for 5 seconds while the radio
+  starts, with a blue hint at the bottom: "Press forward+backward buttons now
+  for Settings screen". Pressing KEY_L and KEY_R together during the splash
+  opens the Configuration menu.
+- The picture is stored in "Splash Image.h" as a 256-colour palette plus one
+  index byte per pixel (about 100 KB of flash). tools/Make Splash Header.py
+  regenerates it from Splash.PNG.
+
+## Revision 45
+- Removed the start-up "Configuration?" prompt and its "Startup wait"
+  setting; start-up goes straight to the Activity grid. The Configuration
+  menu is opened only by holding KEY_L + KEY_R for 5 seconds.
+- Each Configuration page is titled like the screen it configures (FPV
+  Channel Activity, Spectrum, FPV Channel Noise, Quietest Channels, Quietest
+  for HDZero, plus General), shown on a blue bar. "unsaved" and the page
+  counter moved to the top line.
+
+## Revision 44
+- Holding KEY_L and KEY_R together for 5 seconds opens the Configuration menu
+  from any page (it shows "Release the buttons" first).
+- KEY_L / KEY_R now change page when released instead of when pressed, so
+  pressing both together never changes page.
+
+## Revision 43
+- Start-up "Configuration?" prompt (5 s countdown, any button) replaces the
+  HDZero question. The Configuration menu lists every setting, one page per
+  screen, then a Save / Discard page; both restart the device.
+- Menu controls: KEY_L / KEY_R move up / down, ENTER flips On/Off settings or
+  edits numbers (KEY_L / KEY_R step them, hold to repeat, ENTER sets).
+- Settings (all kept in flash): span, learn sweeps, samples per channel,
+  spectrum step, samples per point, peak decay, busy level, shading gamma,
+  full-red spread, minimum history for Quietest, HDZero features, HDZero low
+  band and E1/F1, backlight, start-up wait. Existing saved span and HDZero
+  choice carry over.
+- New files: Settings.cpp, Config Menu.cpp.
+
+## Revision 42
+- Spectrum: the sweep point nearest each channel is moved onto the channel's
+  exact frequency, so each channel is measured directly instead of
+  interpolated. Same number of points, so no change in sweep speed. The
+  trace is drawn by real frequency, and the footer reports the exact
+  frequency of the peak point.
+
 ## Revision 41
 - The pop-up shown when Quietest Channels isn't available yet now reads
   "Wait >60s" instead of "Wait longer" (the number follows

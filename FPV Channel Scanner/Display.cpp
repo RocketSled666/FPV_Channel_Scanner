@@ -1,6 +1,6 @@
 /*
  * FPV Channel Scanner - Display.cpp
- * Revision: 41
+ * Revision: 46
  *
  * ILI9488 320x320 LCD driver (SPI, 18-bit color), text drawing with the
  * 5x7 font, and the CH32V003 IO expander used for LCD reset and backlight.
@@ -75,6 +75,20 @@ void lcdWindow(int x, int y, int w, int h) {
   uint8_t ra[4] = { (uint8_t)(y >> 8), (uint8_t)y, (uint8_t)((y + h - 1) >> 8), (uint8_t)(y + h - 1) };
   lcdCmd(0x2A, ca, 4);
   lcdCmd(0x2B, ra, 4);
+}
+
+// One row of pixels from a buffer of R, G, B bytes (3 per pixel).
+void lcdDrawRgbRow(int x, int y, int w, const uint8_t *rgb) {
+  if (w <= 0) return;
+  lcdWindow(x, y, w, 1);
+  SPI.beginTransaction(lcdSpi);
+  digitalWrite(PIN_LCD_CS, LOW);
+  digitalWrite(PIN_LCD_DC, LOW);
+  SPI.transfer(0x2C);
+  digitalWrite(PIN_LCD_DC, HIGH);
+  SPI.writeBytes(rgb, w * 3);
+  digitalWrite(PIN_LCD_CS, HIGH);
+  SPI.endTransaction();
 }
 
 void lcdFill(int x, int y, int w, int h, uint8_t r, uint8_t g, uint8_t b) {

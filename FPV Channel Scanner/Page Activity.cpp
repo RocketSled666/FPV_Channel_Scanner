@@ -1,6 +1,6 @@
 /*
  * FPV Channel Scanner - Page Activity.cpp
- * Revision: 41
+ * Revision: 46
  *
  * FPV Channel Activity page (the live grid) and the grid sweep that
  * also feeds the Channel Noise and Quietest Channels pages.
@@ -32,7 +32,7 @@ void gridDrawCell(int b, int c, int level, bool peak) {
   int x = GRID_X + c * (CELL_W + CELL_GAP);
   int y = GRID_Y + bandRow[b] * (CELL_H + CELL_GAP);
   RGB col = scaleColor(C_HOT, 0.06f + 0.94f * level / 32.0f);
-  drawGridBox(x, y, col, peak, hdzeroMode && HDZERO_OK[b][c]);
+  drawGridBox(x, y, col, peak, cfg.hdzero && hdzeroOk(b, c));
   char f[6];
   snprintf(f, sizeof(f), "%u", FPV_MHZ[b][c]);
   RGB tc = level > 16 ? RGB{ 0, 0, 0 } : C_DIM;
@@ -69,7 +69,7 @@ void gridSweep() {
     for (int c = 0; c < NUM_CH; c++) {
       raw[b][c] = readFreqDb(FPV_MHZ[b][c], GRID_SAMPLES, SETTLE_US);
       fb[b][c] = g_lastReadFallback;
-      if (evToggle || evEnterShort || evEnterLong) return;  // react to input immediately
+      if (evToggle || evEnterShort || evEnterLong || evConfig) return;  // react to input immediately
       if (learningSweep && c == NUM_CH - 1) {
         int done = (gridSweeps - learnStart) * total + b * NUM_CH + c + 1;
         drawLearnProgress(FOOT_Y, done * 100 / (GRID_LEARN_SWEEPS * total));
@@ -121,7 +121,7 @@ void gridSweep() {
     for (int c = 0; c < NUM_CH; c++) {
       float above = learning ? 0 : gridSmooth[b][c] - gridFloor[b][c];
       if (isnan(above) || gridFloor[b][c] == 0) above = 0;
-      int level = constrain((int)lroundf(above * 32.0f / spanDb), 0, 32);
+      int level = constrain((int)lroundf(above * 32.0f / cfg.span), 0, 32);
       bool peak = havePeak && b == pb && c == pc;
       if (level != gridShownLevel[b][c] || peak != gridShownPeak[b][c]) {
         gridDrawCell(b, c, level, peak);
@@ -139,9 +139,9 @@ void gridSweep() {
   }
   lastLearning = learning;
   if (!learning && (footB != lastPeakB || footC != lastPeakC || aboveRounded != lastAboveRounded ||
-                    spanDb != lastSpan || gridFooterDirty)) {
+                    cfg.span != lastSpan || gridFooterDirty)) {
     gridDrawFooter(footB, footC, best);
-    lastPeakB = footB; lastPeakC = footC; lastAboveRounded = aboveRounded; lastSpan = spanDb; gridFooterDirty = false;
+    lastPeakB = footB; lastPeakC = footC; lastAboveRounded = aboveRounded; lastSpan = cfg.span; gridFooterDirty = false;
   }
   }   // end GRID drawing
   g_tDrawUs += micros() - tDraw0;

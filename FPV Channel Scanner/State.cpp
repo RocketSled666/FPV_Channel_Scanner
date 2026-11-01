@@ -1,6 +1,6 @@
 /*
  * FPV Channel Scanner - State.cpp
- * Revision: 41
+ * Revision: 46
  *
  * Definitions of all global state shared between the pages.
  */
@@ -19,7 +19,6 @@ ScreenMode mode = MODE_GRID;
 // spectrum buttons. Filled by buildButtonOrder() at startup.
 int  btnOrder[NUM_BANDS] = { 5, 2, 4, 0, 1, 3 };   // L E R A B F
 int  bandRow[NUM_BANDS]  = { 3, 4, 1, 5, 2, 0 };   // inverse of btnOrder
-int  spanDb = 15;            // dB above floor = full brightness (grid) and full height (spectrum)
 
 // grid
 float  gridSmooth[NUM_BANDS][NUM_CH];
@@ -46,13 +45,15 @@ int8_t  quietShownBusy[QUIET_LIST_N];     // busy %
 bool    quietFooterDirty = true;
 uint32_t popupUntilMs = 0;               // pop-up on screen until this time, 0 = none
 bool   actFooterDirty = true;
-uint32_t gridSweeps = 0, gridLearnUntil = GRID_LEARN_SWEEPS;
+uint32_t gridSweeps = 0, gridLearnUntil = 0;   // set by gridResetFloor() at start-up
 
 // spectrum
 int      specBand = 4;       // start on Raceband
 uint16_t specLo, specHi;     // MHz
 int      specPts;
 float    specSmooth[SPEC_MAX_PTS];
+uint16_t specMhz[SPEC_MAX_PTS];    // frequency of each sweep point (channels snapped exactly)
+int16_t  specChPt[NUM_CH];         // sweep point index that sits on each channel
 float    specFloor[NUM_BANDS][SPEC_MAX_PTS];
 bool     specFloorValid[NUM_BANDS];
 uint32_t specSweeps = 0, specLearnUntil = 0;
@@ -69,8 +70,8 @@ ButtonState btnKeyL  = { PIN_KEY_L,     false, 0, false };
 ButtonState btnKeyR  = { PIN_KEY_R,     false, 0, false };
 ButtonState btnEnter = { PIN_BTN_ENTER, false, 0, false };
 bool evEnterShort = false, evEnterLong = false, evToggle = false;
+bool evConfig = false;                // KEY_L + KEY_R held CONFIG_HOLD_MS: open the menu
 int  pageDir = 1;              // +1 = KEY_R (forward), -1 = KEY_L (back)
-bool hdzeroMode = false;       // chosen at start-up: HDZero page + outlines
 uint32_t lastInputPollMs = 0;
 bool  gridFooterDirty = true, specFooterDirty = true;
 int   learnShownPct = -1, learnShownY = -1;   // progress bar currently drawn

@@ -1,9 +1,11 @@
 /*
  * FPV Channel Scanner - Page Spectrum.cpp
- * Revision: 41
+ * Revision: 46
  *
  * Spectrum page: continuous sweep across one band in SPEC_STEP_MHZ
- * steps, with channel markers, values and band buttons.
+ * steps, with channel markers, values and band buttons. The sweep point
+ * nearest each channel is moved onto the channel's exact frequency, so every
+ * channel is measured directly; points are drawn by their real frequency.
  */
 
 #include "Scanner.h"
@@ -22,11 +24,21 @@ void specSetBand(int band) {
   if (specPts > SPEC_MAX_PTS) specPts = SPEC_MAX_PTS;
   specLo = lo;
   specHi = lo + (specPts - 1) * SPEC_STEP_MHZ;
+  // Even grid, then snap the nearest point onto each channel (moves it at
+  // most SPEC_STEP_MHZ / 2; channels are >= 19 MHz apart, so no two channels
+  // share a point and the points stay in order).
+  for (int i = 0; i < specPts; i++) specMhz[i] = lo + i * SPEC_STEP_MHZ;
+  for (int c = 0; c < NUM_CH; c++) {
+    int i = (int)lroundf((FPV_MHZ[band][c] - lo) / (float)SPEC_STEP_MHZ);
+    i = constrain(i, 0, specPts - 1);
+    specMhz[i] = FPV_MHZ[band][c];
+    specChPt[c] = i;
+  }
   for (int i = 0; i < specPts; i++) specSmooth[i] = NAN;
   if (!specFloorValid[band]) {
     bool seed = gridFloorReady() && !specNoSeedOnce;
     for (int i = 0; i < SPEC_MAX_PTS; i++)
-      specFloor[band][i] = (seed && i < specPts) ? gridFloorAt(lo + i * SPEC_STEP_MHZ) : 0;
+      specFloor[band][i] = (seed && i < specPts) ? gridFloorAt(specMhz[i]) : 0;
     if (seed) {
       // Grid has learned: use its floor as-is. Normal min-tracking keeps
       // refining it during use, so no separate learning pass is needed.
@@ -71,8 +83,8 @@ void specDrawStatic() {
 
   // y axis labels (dB above floor)
   char s[8];
-  snprintf(s, sizeof(s), "%d", spanDb);       lcdText(2, GY, s, 1, C_DIM, C_BG);
-  snprintf(s, sizeof(s), "%d", (spanDb + 1) / 2);   lcdText(2, GY + GH / 2 - 4, s, 1, C_DIM, C_BG);
+  snprintf(s, sizeof(s), "%d", cfg.span);       lcdText(2, GY, s, 1, C_DIM, C_BG);
+  snprintf(s, sizeof(s), "%d", (cfg.span + 1) / 2);   lcdText(2, GY + GH / 2 - 4, s, 1, C_DIM, C_BG);
   lcdText(2, GY + GH - 8, "0", 1, C_DIM, C_BG);
   lcdText(2, GY + GH - 18, "dB", 1, C_DIM, C_BG);
 
@@ -109,14 +121,13 @@ void specDrawColumn(int x, int h, int pk) {
 }
 
 // dB value under each channel number (blank below 3 dB, strongest in accent).
+// Read straight from the sweep point that sits on the channel's frequency.
 void specDrawChannelValues(const float *flo) {
   int val[NUM_CH]; int best = -1, bestV = 2;
   for (int c = 0; c < NUM_CH; c++) {
-    float pos = (FPV_MHZ[specBand][c] - specLo) / (float)SPEC_STEP_MHZ;
-    int i0 = constrain((int)pos, 0, specPts - 1); int i1 = min(i0 + 1, specPts - 1); float t = pos - i0;
-    float a0 = (isnan(specSmooth[i0]) || flo[i0] == 0) ? 0 : specSmooth[i0] - flo[i0];
-    float a1 = (isnan(specSmooth[i1]) || flo[i1] == 0) ? 0 : specSmooth[i1] - flo[i1];
-    int v = (int)lroundf(a0 + (a1 - a0) * t);
+    int i = specChPt[c];
+    float a = (isnan(specSmooth[i]) || flo[i] == 0) ? 0 : specSmooth[i] - flo[i];
+    int v = (int)lroundf(a);
     val[c] = (v < 3) ? -1 : min(v, 99);
     if (val[c] > bestV) { bestV = val[c]; best = c; }
   }
@@ -169,9 +180,9 @@ void specSweep() {
   float raw[SPEC_MAX_PTS];
   bool  fb[SPEC_MAX_PTS];
   for (int i = 0; i < specPts; i++) {
-    raw[i] = readFreqDb(specLo + i * SPEC_STEP_MHZ, SPEC_SAMPLES, SETTLE_US);
+    raw[i] = readFreqDb(specMhz[i], SPEC_SAMPLES, SETTLE_US);
     fb[i] = g_lastReadFallback;
-    if (evToggle || evEnterShort || evEnterLong) return;  // react to input immediately
+    if (evToggle || evEnterShort || evEnterLong || evConfig) return;  // react to input immediately
     if (learningSweep && (i % 8 == 7 || i == specPts - 1)) {
       int done = (specSweeps - learnStart) * specPts + i + 1;
       drawLearnProgress(SPEC_FOOT_Y, done * 100 / (SPEC_LEARN_SWEEPS * specPts));
@@ -198,21 +209,32 @@ void specSweep() {
   for (int i = 0; i < specPts; i++) if (flo[i] > med + 4.0f) flo[i] = med + 4.0f;
   if (!learning) specFloorValid[specBand] = true;
 
-  // draw: each pixel column interpolates between sweep points
+  // draw: each pixel column interpolates, by frequency, between the two
+  // sweep points either side of it (points aren't evenly spaced any more)
   uint32_t tDraw0 = micros();
   float bestAbove = -1e9f, bestMhz = specLo;
+  int seg = 0;
   for (int x = 0; x < GW; x++) {
-    float pos = x * (specPts - 1) / (float)(GW - 1);
-    int i0 = (int)pos; int i1 = min(i0 + 1, specPts - 1); float t = pos - i0;
+    float f = specLo + x * (float)(specHi - specLo) / (GW - 1);
+    while (seg < specPts - 2 && specMhz[seg + 1] < f) seg++;
+    int i0 = seg, i1 = min(seg + 1, specPts - 1);
+    float span = (float)(specMhz[i1] - specMhz[i0]);
+    float t = span > 0 ? constrain((f - specMhz[i0]) / span, 0.0f, 1.0f) : 0;
     float a0 = (isnan(specSmooth[i0]) || flo[i0] == 0) ? 0 : specSmooth[i0] - flo[i0];
     float a1 = (isnan(specSmooth[i1]) || flo[i1] == 0) ? 0 : specSmooth[i1] - flo[i1];
     float above = a0 + (a1 - a0) * t;     // trace is drawn even while learning
-    if (above > bestAbove) { bestAbove = above; bestMhz = specLo + pos * SPEC_STEP_MHZ; }
-    int h = constrain((int)lroundf(above * GH / spanDb), 0, GH);
+    if (above > bestAbove) { bestAbove = above; bestMhz = f; }
+    int h = constrain((int)lroundf(above * GH / cfg.span), 0, GH);
     colPeak[x] = max(colPeak[x] - PEAK_DECAY_PX, (float)h); // peak hold, falling
     specDrawColumn(x, h, (int)colPeak[x]);
     if ((x & 31) == 0) pollInput();
   }
+
+  // The trace is straight lines between measured points, so its peak is at a
+  // point: report that point's exact frequency rather than the pixel column's.
+  { int bi = 0; float bd = 1e9f;
+    for (int i = 0; i < specPts; i++) { float d = fabsf(specMhz[i] - bestMhz); if (d < bd) { bd = d; bi = i; } }
+    bestMhz = specMhz[bi]; }
 
   specDrawChannelValues(flo);
 

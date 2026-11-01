@@ -1,6 +1,6 @@
 /*
  * FPV Channel Scanner - Config.h
- * Revision: 41
+ * Revision: 46
  *
  * Hardware pins, tuning constants, shared types, frequency table, colors
  * and the undocumented ESP32-C5 radio access used by the scanner.
@@ -26,6 +26,40 @@ struct StallStat {        // frequencies whose measurement timed out
   uint32_t count;
   float    lastFallbackDb;
 };
+// User settings, edited in the Configuration menu (KEY_L + KEY_R held) and kept in flash
+// (Settings.cpp). Everything is an int so the menu can treat them alike:
+// toggles are 0/1, fractional values are stored scaled (see each field).
+struct Settings {
+  int span;          // dB above floor = full brightness / full graph height
+  int learnSweeps;   // sweeps spent learning the noise floor (grid and spectrum)
+  int gridSamples;   // measurements averaged per grid channel (~3.2 ms each)
+  int specStep;      // spectrum step, MHz
+  int specSamples;   // measurements averaged per spectrum point
+  int peakDecay10;   // peak-hold fall, tenths of a pixel per sweep
+  int busyDb;        // noise page: reading this far above floor counts as busy
+  int gamma100;      // noise page shading curve, hundredths (55 = 0.55)
+  int redSpread10;   // noise page: quietest-to-busiest spread for full red, tenths of dB
+  int quietMinS;     // noise history (s) needed before the Quietest page opens
+  int hdzero;        // HDZero features on/off
+  int hdzLowBand;    // HDZero lists/outlines include L1-L8
+  int hdzE1F1;       // HDZero lists/outlines include E1 and F1
+  int backlight;     // LCD backlight, %
+};
+
+// One line in the Configuration menu (Settings.cpp)
+struct SettingDef {
+  const char *page;     // menu page = title of the screen it configures
+  const char *name;     // label shown in the list
+  const char *key;      // flash key (max 15 chars)
+  int *value;           // field in cfg
+  int  minV, maxV, step;
+  int  def;             // default value
+  uint8_t isToggle;     // 1 = On/Off, Enter flips it
+  uint8_t decimals;     // stored scaled by 10^decimals
+  const char *unit;     // shown after the value ("" for none)
+  const char *help;     // one-line description
+};
+
 struct ButtonState {
   uint8_t  pin;
   bool     down;
@@ -58,30 +92,34 @@ struct ButtonState {
 
 // ---------------------------------------------------------------- tuning knobs
 #define LONG_PRESS_MS     700
+#define CONFIG_HOLD_MS    5000    // hold KEY_L + KEY_R this long to open the Configuration menu
+#define SPLASH_MS         5000    // start-up splash screen time
+#define SPLASH_COMBO_MS   80      // KEY_L + KEY_R held this long on the splash = Configuration
 
-#define SPEC_STEP_MHZ     4       // spectrum resolution (receiver is 20 MHz wide)
+// The values below come from cfg (Settings.cpp), so they can be changed in
+// the Configuration menu. Defaults are in the settings table.
+#define SPEC_STEP_MHZ     (cfg.specStep)            // spectrum resolution (receiver is 20 MHz wide)
 #define SPEC_MARGIN_MHZ   20      // extra span beyond the outer channels
 #define SPEC_MAX_PTS      200
-#define ACT_BUSY_DB       3.0f    // noise page: a reading this far above floor counts as busy
+#define ACT_BUSY_DB       ((float)cfg.busyDb)       // noise page: this far above floor counts as busy
 #define ACT_MAX_DT_S      1.0f    // longest gap counted (e.g. after leaving the page)
-#define ACT_MIN_SCALE_DB  0.5f    // quietest-to-busiest spread needed for full red (dB)
+#define ACT_MIN_SCALE_DB  (cfg.redSpread10 / 10.0f) // quietest-to-busiest spread needed for full red (dB)
 #define QUIET_LIST_N      16      // channels listed on the QUIETEST CHANNELS page
-#define QUIET_MIN_HISTORY_S 60    // noise history needed before Quietest can open
-#define HDZ_ASK_MS        5000    // start-up HDZero question: time before the default (No)
+#define QUIET_MIN_HISTORY_S (cfg.quietMinS)        // noise history needed before Quietest can open
 #define POPUP_MS          1500    // how long the "Wait >60s" pop-up stays up
 #define POPUP_W           220     // pop-up box, centred horizontally
 #define POPUP_H           56
 #define POPUP_X           ((LCD_W - POPUP_W) / 2)
 #define POPUP_Y           (GRID_Y + 90)
-#define ACT_GAMMA         0.55f   // shading curve: <1 brightens small differences (1 = linear)
-#define PEAK_DECAY_PX     1.8f    // peak-hold dots fall this many pixels per sweep
-#define SPEC_SAMPLES      1       // measurements averaged per spectrum point (~3.2 ms each)
-#define GRID_SAMPLES      1       // measurements averaged per grid channel   (~3.2 ms each)
+#define ACT_GAMMA         (cfg.gamma100 / 100.0f)   // shading curve: <1 brightens small differences
+#define PEAK_DECAY_PX     (cfg.peakDecay10 / 10.0f) // peak-hold dots fall this many pixels per sweep
+#define SPEC_SAMPLES      (cfg.specSamples)         // measurements averaged per spectrum point
+#define GRID_SAMPLES      (cfg.gridSamples)         // measurements averaged per grid channel
 #define SETTLE_US         100     // wait after retune before measuring
 #define MEAS_TIMEOUT_US   5000    // a measurement normally takes ~3.2 ms
 #define MAX_STALL_STATS   16
-#define GRID_LEARN_SWEEPS 4       // sweeps spent learning the noise floor
-#define SPEC_LEARN_SWEEPS 4
+#define GRID_LEARN_SWEEPS (cfg.learnSweeps)       // sweeps spent learning the noise floor
+#define SPEC_LEARN_SWEEPS (cfg.learnSweeps)
 
 // ---------------------------------------------------------------- FPV table
 #define NUM_BANDS 6
@@ -89,7 +127,9 @@ struct ButtonState {
 static const char BAND_NAME[NUM_BANDS] = { 'A', 'B', 'E', 'F', 'R', 'L' };
 static const char * const BAND_LONG[NUM_BANDS] = { "Boscam A", "Boscam B", "Boscam E",
                                             "Fatshark", "Raceband", "Lowband" };
-// Channels an HDZero VTX can be set to (same band order as FPV_MHZ):
+// Channels an HDZero VTX can be set to (same band order as FPV_MHZ). The
+// settings can drop L1-L8 and E1/F1 from this; use hdzeroOk(), not the table.
+// Channels an HDZero VTX can be set to:
 // R1-R8, E1, F1, F2, F4, plus L1-L8 once low band is unlocked on the VTX.
 // Source: HDZero docs, VTX "Getting Started" (docs.hd-zero.com/vtx-general):
 // "All VTXes support R1-R8, E1, F1, F2 and F4 channels. You will get an

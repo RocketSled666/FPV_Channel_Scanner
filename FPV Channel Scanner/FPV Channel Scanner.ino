@@ -1,6 +1,6 @@
 /*
  * FPV Channel Scanner
- * Revision: 41
+ * Revision: 46
  * Board : Waveshare ESP32-C5-LCD-2.73 (ESP32-C5, ILI9488 320x320 SPI LCD)
  * Core  : Arduino-ESP32 3.3.x  (Tools > Board > "ESP32C5 Dev Module")
  *
@@ -20,7 +20,8 @@
  * Four pages, plus a fifth in HDZero mode, in KEY_R order:
  *   FPV CHANNEL ACTIVITY (grid) - all 48 FPV channels, square brightness =
  *               power above floor right now
- *   SPECTRUM  - continuous sweep across one band in 4 MHz steps
+ *   SPECTRUM  - continuous sweep across one band in 4 MHz steps, with the
+ *               point nearest each channel moved onto its exact frequency
  *   FPV CHANNEL NOISE - same layout as the grid; each box = its signal above
  *               the floor averaged over all time since start or the last
  *               reset, shaded from the quietest channel (black) to the
@@ -35,10 +36,21 @@
  *               Reached only by KEY_R from Quietest Channels, and only in
  *               HDZero mode.
  *
- *   HDZero mode: at power-on the scanner asks "Enable HDZero specifics?"
- *   KEY_R = Yes, KEY_L = No. The answer is saved in flash; with no press
- *   during the 5 second countdown the saved answer is used (No the first
- *   time). HDZero mode adds the Quietest for
+ * Start-up: a splash screen (Splash.PNG) shows for 5 s with a blue hint,
+ *   "Press forward+backward buttons now for Settings screen"; the radio
+ *   starts underneath it. Pressing KEY_L + KEY_R together during the splash
+ *   opens the Configuration menu; otherwise the Activity grid follows.
+ *
+ * Configuration: hold KEY_L + KEY_R for 5 s on any page (or press both
+ *   during the splash) to open the Configuration menu. The menu lists every setting, one page per screen,
+ *   titled like that screen on a blue bar (FPV Channel Activity, Spectrum,
+ *   FPV Channel Noise, Quietest Channels, Quietest for HDZero) plus General,
+ *   then a Save / Discard page; both restart the device. In the
+ *   menu: KEY_L / KEY_R move up / down, ENTER flips an On/Off setting or
+ *   edits a number (then KEY_L / KEY_R step it, hold to repeat, ENTER sets
+ *   it). All settings are kept in flash. See Settings.cpp for the list.
+ *
+ *   HDZero mode (the "HDZero features" setting) adds the Quietest for
  *   HDZero page, a blue outline on HDZero-usable channels on both grid
  *   pages (inside the white highlight when a box has both), and a blue
  *   "HDZ" marker at the top left of the grids. Without it, KEY_R from
@@ -49,7 +61,9 @@
  *          HDZero -> Quietest -> Noise
  *
  * Buttons:
- *   KEY_L / KEY_R (GPIO2 / GPIO3) = previous / next page (order above)
+ *   KEY_L / KEY_R (GPIO2 / GPIO3) = previous / next page (order above),
+ *                                   on release
+ *   KEY_L + KEY_R held 5 s    = open the Configuration menu from any page
  *   ENTER (short) on GRID     = cycle the span (dB); saved across power cycles
  *   ENTER (short) on NOISE or either QUIETEST page = clear the noise history
  *   ENTER (short) on SPECTRUM = select the next band button under the graph
@@ -68,6 +82,11 @@
  *   Input.cpp       buttons
  *   Radio.cpp       tuning, measurement, RSSI fallback, timing
  *   Bands.cpp       band display order
+ *   Settings.cpp    settings: list, limits, defaults, flash load / save
+ *   Config Menu.cpp Configuration menu
+ *   Splash.cpp      start-up splash screen
+ *   Splash Image.h  splash picture data, made from Splash.PNG by
+ *                   tools/Make Splash Header.py
  *   Screen Common.cpp  shared drawing, pop-up, page navigation
  *   Page Activity.cpp / Page Spectrum.cpp / Page Noise.cpp / Page Quietest.cpp
  *   font5x7.h       5x7 bitmap font
@@ -80,6 +99,16 @@
  *   40  Span saved in flash and restored at power-on; HDZero outlines
  *       confirmed to depend only on HDZero mode
  *   41  Pop-up text "Wait longer" changed to "Wait >60s"
+ *   42  Spectrum measures every channel at its exact frequency (nearest
+ *       sweep point snapped onto it); no extra points, same sweep speed
+ *   43  Configuration menu at start-up replaces the HDZero question; all
+ *       tunable values are settings kept in flash
+ *   44  Holding KEY_L + KEY_R for 5 s opens the Configuration menu from any
+ *       page; page keys now act on release so the hold doesn't change page
+ *   45  Start-up Configuration prompt removed (two-key hold only); menu
+ *       pages titled like the screens they configure, on a blue bar
+ *   46  5 s start-up splash screen from Splash.PNG with a blue hint; both
+ *       page keys pressed during it open the Configuration menu
  */
 
 #include "Scanner.h"
@@ -93,7 +122,7 @@ void setup() {
 #endif
   Serial.begin(115200);
   buildButtonOrder();          // band order for grid rows and spectrum buttons
-  loadSpan();                  // span saved from the last session (15 dB if none)
+  loadSettings();              // all settings saved in flash (defaults if none)
   delay(200);
   Serial.println("\nFPV Channel Scanner (ESP32-C5)");
 
@@ -108,13 +137,17 @@ void setup() {
   SPI.begin(PIN_LCD_SCK, PIN_LCD_MISO, PIN_LCD_MOSI, -1);
 
   lcdInit();
-  exioBacklight(100);
-  hdzeroMode = askHdzeroMode();               // KEY_R = yes, KEY_L = no, 5 s = last saved
-  Serial.printf("HDZero mode: %s\n", hdzeroMode ? "on" : "off");
-  gridDrawStatic();
-  lcdText(4, FOOT_Y + 2, "Starting radio", 2, C_DIM, C_BG);
-
-  radioInit();
+  showSplash();                               // picture + "Press forward+backward..." hint
+  exioBacklight(cfg.backlight);               // backlight on once the splash is drawn
+  uint32_t splashStart = millis();
+  Serial.print("Settings:");                  // everything from the Configuration menu
+  for (int i = 0; i < NUM_SETTINGS; i++) {
+    char v[16];
+    formatSetting(i, v, sizeof(v));
+    Serial.printf(" %s=%s", SETTINGS[i].key, v);
+  }
+  Serial.println();
+  radioInit();                                // radio starts while the splash shows
   gridResetFloor();
   for (int b = 0; b < NUM_BANDS; b++) specFloorValid[b] = false;
   specSetBand(specBand);
@@ -125,6 +158,11 @@ void setup() {
                 t, (unsigned long)(micros() - t0), (unsigned long)g_nfTimeouts);
   bootTimingTest();
   g_tTuneUs = g_tMeasUs = g_tDrawUs = 0; g_nTunes = g_nMeas = 0;
+
+  // Splash stays up for SPLASH_MS in total; KEY_L + KEY_R pressed together
+  // during it opens the Configuration (settings) menu, which ends in a restart.
+  if (splashWait(splashStart)) runConfigMenu();
+  gridDrawStatic();
   gridInvalidate();
 }
 
@@ -132,6 +170,11 @@ void loop() {
   if (mode == MODE_SPECTRUM) specSweep(); else gridSweep();
   pollInput();
 
+  if (evConfig) {                           // KEY_L + KEY_R held: Configuration menu
+    evConfig = false;
+    Serial.println("config: KEY_L + KEY_R held, opening Configuration menu");
+    runConfigMenu();                        // ends in a restart
+  }
   if (evToggle) {
     evToggle = false; evEnterShort = evEnterLong = false;
     ScreenMode next = pageAfter(mode, pageDir);
@@ -163,7 +206,7 @@ void loop() {
   if (evEnterShort) {
     evEnterShort = false;
     if (mode == MODE_GRID) {                // cycle brightness span
-      spanDb = (spanDb >= 40) ? 15 : spanDb + 5;
+      cfg.span = (cfg.span >= 40) ? 15 : cfg.span + 5;
       saveSpan();                           // remembered across power cycles
       gridInvalidate(); gridFooterDirty = true;
     } else if (mode == MODE_ACTIVITY) {     // restart the activity sums

@@ -1,6 +1,6 @@
 /*
  * FPV Channel Scanner - Scanner.h
- * Revision: 41
+ * Revision: 46
  *
  * Shared declarations: every global variable (defined in State.cpp) and
  * every function, grouped by the file that defines it. Each .cpp file
@@ -10,6 +10,26 @@
 #pragma once
 
 #include "Config.h"
+
+// ---------------------------------------------------------------- settings (Settings.cpp)
+extern Settings cfg;
+extern const SettingDef SETTINGS[];
+extern const int NUM_SETTINGS;
+void loadSettings();
+void saveSettings();
+void resetSettingsToDefaults();
+void saveSpan();
+void formatSetting(int i, char *buf, int len);
+void stepSetting(int i, int dir);
+bool hdzeroOk(int b, int c);
+
+// ---------------------------------------------------------------- Splash.cpp
+void showSplash();
+bool splashWait(uint32_t startMs);
+void hdzeroChannelsText(char *buf, int len);
+
+// ---------------------------------------------------------------- Config Menu.cpp
+void runConfigMenu();
 
 // ---------------------------------------------------------------- globals (State.cpp)
 extern uint32_t g_nfTimeouts;
@@ -24,7 +44,6 @@ extern ScreenMode mode;
 // spectrum buttons. Filled by buildButtonOrder() at startup.
 extern int btnOrder[NUM_BANDS];   // L E R A B F
 extern int bandRow[NUM_BANDS];   // inverse of btnOrder
-extern int spanDb;            // dB above floor = full brightness (grid) and full height (spectrum)
 
 // grid
 extern float gridSmooth[NUM_BANDS][NUM_CH];
@@ -51,13 +70,15 @@ extern int8_t quietShownBusy[QUIET_LIST_N];     // busy %
 extern bool quietFooterDirty;
 extern uint32_t popupUntilMs;               // pop-up on screen until this time, 0 = none
 extern bool actFooterDirty;
-extern uint32_t gridSweeps, gridLearnUntil;
+extern uint32_t gridSweeps, gridLearnUntil;   // set by gridResetFloor() at start-up
 
 // spectrum
 extern int specBand;       // start on Raceband
 extern uint16_t specLo, specHi;     // MHz
 extern int specPts;
 extern float specSmooth[SPEC_MAX_PTS];
+extern uint16_t specMhz[SPEC_MAX_PTS];    // frequency of each sweep point (channels snapped exactly)
+extern int16_t specChPt[NUM_CH];         // sweep point index that sits on each channel
 extern float specFloor[NUM_BANDS][SPEC_MAX_PTS];
 extern bool specFloorValid[NUM_BANDS];
 extern uint32_t specSweeps, specLearnUntil;
@@ -74,8 +95,8 @@ extern ButtonState btnKeyL;
 extern ButtonState btnKeyR;
 extern ButtonState btnEnter;
 extern bool evEnterShort, evEnterLong, evToggle;
+extern bool evConfig;                // KEY_L + KEY_R held CONFIG_HOLD_MS: open the menu
 extern int pageDir;              // +1 = KEY_R (forward), -1 = KEY_L (back)
-extern bool hdzeroMode;       // chosen at start-up: HDZero page + outlines
 extern uint32_t lastInputPollMs;
 extern bool gridFooterDirty, specFooterDirty;
 extern int learnShownPct, learnShownY;   // progress bar currently drawn
@@ -94,6 +115,7 @@ void lcdWindow(int x, int y, int w, int h);
 void lcdFill(int x, int y, int w, int h, uint8_t r, uint8_t g, uint8_t b);
 void lcdFillC(int x, int y, int w, int h, RGB c);
 void lcdText(int x, int y, const char *s, int scale, RGB fg, RGB bg);
+void lcdDrawRgbRow(int x, int y, int w, const uint8_t *rgb);
 void lcdTextSized(int x, int y, const char *s, int cw, int ch, RGB fg, RGB bg);
 RGB scaleColor(RGB c, float k);
 
@@ -119,9 +141,6 @@ int nextBandInButtonOrder(int band);
 // ---------------------------------------------------------------- Screen Common.cpp
 void drawGridFrame(const char *title, RGB titleColor);
 void drawGridBox(int x, int y, RGB fill, bool highlight, bool hdzero);
-bool askHdzeroMode();
-void loadSpan();
-void saveSpan();
 void updateScanDots();
 void drawScanning(int y);
 void drawSpanLabel();

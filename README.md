@@ -45,12 +45,21 @@ All in `FPV Channel Scanner/`:
 | `Input.cpp` | Buttons |
 | `Radio.cpp` | Tuning, noise-floor measurement, RSSI fallback, start-up, timing report |
 | `Bands.cpp` | Band display order (lowest frequency first) |
+| `Settings.cpp` | Settings list, limits and defaults; flash load / save |
+| `Config Menu.cpp` | Configuration menu |
+| `Splash.cpp` | Start-up splash screen |
+| `Splash Image.h` | Splash picture data (generated from `Splash.PNG`) |
+| `Splash.PNG` | Splash picture, 320 x 320 |
 | `Screen Common.cpp` | Drawing shared by pages, pop-up, page navigation |
 | `Page Activity.cpp` | FPV Channel Activity page and the channel sweep |
 | `Page Spectrum.cpp` | Spectrum page |
 | `Page Noise.cpp` | FPV Channel Noise page and the long-term statistics |
 | `Page Quietest.cpp` | Quietest Channels page |
 | `font5x7.h` | 5x7 bitmap font |
+
+To change the splash picture, replace `Splash.PNG` (320 x 320) and run
+`python "tools/Make Splash Header.py" "FPV Channel Scanner/Splash.PNG"
+"FPV Channel Scanner/Splash Image.h"` (needs Pillow).
 
 Each source file's header carries the revision number; see `CHANGELOG.md`
 for what changed in each revision.
@@ -66,7 +75,8 @@ pop-up shows and the page stays put.
   above the noise floor right now. In HDZero mode, channels an HDZero VTX can
   use have a blue outline (also on the Noise grid).
 - **Spectrum**: continuous sweep of one band in 4 MHz steps (outer channels
-  20 MHz beyond the band). Channel numbers sit under faint marker lines; white
+  20 MHz beyond the band), with the point nearest each channel moved onto the
+  channel's exact frequency, so every channel is measured directly. Channel numbers sit under faint marker lines; white
   dots are a falling peak hold. Each channel's dB above the floor is printed
   under its number (blank below 3 dB, strongest in amber). Band buttons
   L E R A B F sit under the graph.
@@ -88,14 +98,39 @@ pop-up shows and the page stays put.
   on the VTX ([HDZero VTX docs](https://docs.hd-zero.com/vtx-general)).
   Reached with KEY_R from Quietest Channels, in HDZero mode only.
 
-**HDZero mode:** at power-on the scanner asks "Enable HDZero specifics?".
-Press KEY_R for Yes or KEY_L for No. The answer is saved and becomes the
-default: with no press during the 5 second countdown, the last answer is used
-(No the very first time). Yes enables the Quietest for HDZero page and the blue outlines, and
-shows a blue "HDZ" marker at the top left of the grid pages.
+**HDZero mode:** turned on with the "HDZero features" setting in the
+Configuration menu. It enables the Quietest for HDZero page and the blue
+outlines, and shows a blue "HDZ" marker at the top left of the grid pages.
+The HDZero list can leave out L1-L8 and E1/F1 (settings on the same page).
+
+## Configuration
+At power-on a splash screen shows for 5 seconds while the radio starts. Press
+KEY_L and KEY_R together during it to open the Configuration menu; otherwise
+the Activity grid follows. You can also open the menu at any time by holding
+KEY_L and KEY_R together for 5 seconds on any page.
+
+The menu has one page per screen, titled like that screen on a blue bar, then
+a Save / Discard page:
+
+| Page | Settings |
+|---|---|
+| FPV Channel Activity | Span (dB), learn sweeps, samples per channel |
+| Spectrum | Step (MHz), samples per point, peak decay |
+| FPV Channel Noise | Busy level (dB), shading gamma, full-red spread (dB) |
+| Quietest Channels | Minimum history before the list opens (s) |
+| Quietest for HDZero | HDZero features, low band L1-L8, E1 and F1 |
+| General | Backlight (%) |
+
+- **KEY_L / KEY_R**: move up / down the list (past the end of a page goes to
+  the next or previous page).
+- **ENTER**: flip an On/Off setting, or start editing a number. While
+  editing, KEY_L / KEY_R step it down / up (hold to repeat) and ENTER sets it.
+- **Save and restart** writes everything to flash; **Discard and restart**
+  forgets the changes; **Reset to defaults** loads the defaults (then Save).
 
 ## Buttons
-- **KEY_R / KEY_L**: next / previous page (order above).
+- **KEY_R / KEY_L**: next / previous page (order above), when released.
+- **KEY_L + KEY_R held 5 s**: open the Configuration menu from any page.
 - **ENTER (short)** on the grid: cycle the span (15-40 dB, default 15). It sets
   the grid brightness scale and the spectrum graph height, and is remembered
   across power cycles.
@@ -121,9 +156,9 @@ shows a blue "HDZ" marker at the top left of the grid pages.
 - If a frequency's measurement stalls (seems to happen when a signal keeps
   the receiver busy), the receiver's RSSI register is used instead. Serial
   prints a "stalls" line listing those frequencies and the fallback values.
-- The spectrum tunes in 4 MHz steps, off the normal 5 MHz Wi-Fi grid. If the
-  synthesizer can't land on those exactly, the trace will look stepped; set
-  `SPEC_STEP_MHZ` to 5.
+- The spectrum tunes in 4 MHz steps (2-6 MHz around channels), off the normal
+  5 MHz Wi-Fi grid. If the synthesizer can't land on those exactly, the trace
+  will look stepped; set `SPEC_STEP_MHZ` to 5.
 - These PHY calls and registers are undocumented, found by disassembling
   Espressif's libphy.a. A future core update could move or change them.
 - Readings are relative dB, not calibrated dBm.

@@ -1,11 +1,11 @@
 /*
  * FPV Channel Scanner - Page Quietest.cpp
- * Revision: 41
+ * Revision: 46
  *
  * Quietest Channels and Quietest for HDZero pages: the QUIET_LIST_N
  * quietest channels from the Channel Noise history, in two columns of 8:
  * left column 1-8, right column 9-16. The HDZero page lists only channels
- * an HDZero VTX can use (HDZERO_OK in Config.h). Measurement keeps running
+ * an HDZero VTX can use (hdzeroOk() in Settings.cpp). Measurement keeps running
  * on these pages, so the history and the lists stay live.
  */
 
@@ -56,7 +56,7 @@ void quietDraw(bool learning, uint32_t learnStart) {
   int list[NUM_BANDS * NUM_CH], nList = 0;
   for (int i = 0; i < NUM_BANDS * NUM_CH; i++) {
     int k = order[i];
-    if (mode == MODE_HDZERO && !HDZERO_OK[k / NUM_CH][k % NUM_CH]) continue;
+    if (mode == MODE_HDZERO && !hdzeroOk(k / NUM_CH, k % NUM_CH)) continue;
     list[nList++] = k;
   }
   for (int i = 0; i < QUIET_LIST_N; i++) {
@@ -85,7 +85,7 @@ void quietDraw(bool learning, uint32_t learnStart) {
     learnShownPct = -1; scanAnimY = -1;
     lcdFill(0, FOOT_Y, LCD_W, LCD_H - FOOT_Y, 0, 0, 0);
     if (ready && mode == MODE_HDZERO)
-      lcdText(4, FOOT_Y + 6, "HDZero: R1-8, L1-8, E1, F1, F2, F4", 1, C_DIM, C_BG);
+      { char t[48]; hdzeroChannelsText(t, sizeof(t)); lcdText(4, FOOT_Y + 6, t, 1, C_DIM, C_BG); }
     if (ready) lcdText(4, FOOT_Y + 20, "1 = quietest", 1, C_DIM, C_BG);
     else       drawScanning(FOOT_Y + 2);
     drawSpanLabel();
