@@ -117,3 +117,6 @@ pop-up shows and the page stays put.
   B1 5733 / R3 5732) will light up together. That's the radio, not a bug.
 - RF calibration outside the Wi-Fi channel plan (L band, E7/E8 above 5925 MHz)
   is interpolated by the PHY, so sensitivity there may be lower.
+
+## License
+MIT - see [LICENSE](LICENSE).
