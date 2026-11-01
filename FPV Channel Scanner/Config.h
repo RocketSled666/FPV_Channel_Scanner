@@ -1,6 +1,6 @@
 /*
  * FPV Channel Scanner - Config.h
- * Revision: 35
+ * Revision: 41
  *
  * Hardware pins, tuning constants, shared types, frequency table, colors
  * and the undocumented ESP32-C5 radio access used by the scanner.
@@ -67,7 +67,8 @@ struct ButtonState {
 #define ACT_MIN_SCALE_DB  0.5f    // quietest-to-busiest spread needed for full red (dB)
 #define QUIET_LIST_N      16      // channels listed on the QUIETEST CHANNELS page
 #define QUIET_MIN_HISTORY_S 60    // noise history needed before Quietest can open
-#define POPUP_MS          1500    // how long the "Wait longer" pop-up stays up
+#define HDZ_ASK_MS        5000    // start-up HDZero question: time before the default (No)
+#define POPUP_MS          1500    // how long the "Wait >60s" pop-up stays up
 #define POPUP_W           220     // pop-up box, centred horizontally
 #define POPUP_H           56
 #define POPUP_X           ((LCD_W - POPUP_W) / 2)
@@ -158,6 +159,7 @@ static const RGB C_MARK  = {  40,  40,  55 };  // channel marker lines in the gr
 static const RGB C_PEAKH = { 255, 255, 255 };  // peak-hold trace
 static const RGB C_RED   = { 255,   0,   0 };  // full-intensity activity color
 static const RGB C_RANK  = { 160, 160, 160 };  // rank numbers on the noise page
+static const RGB C_HDZ   = {  40, 120, 255 };  // outline: channel an HDZero VTX can use
 
 // ---------------------------------------------------------------- layout / UI constants
 // (moved here from the page code when the sketch was split into files)

@@ -2,6 +2,39 @@
 
 Revision numbers match the `Revision:` line in the source headers.
 
+## Revision 41
+- The pop-up shown when Quietest Channels isn't available yet now reads
+  "Wait >60s" instead of "Wait longer" (the number follows
+  QUIET_MIN_HISTORY_S).
+
+## Revision 40
+- The span (grid brightness / spectrum height) is saved in flash when it is
+  changed and restored at power-on, instead of resetting to 15 dB.
+- HDZero outlines: confirmed they are drawn only in HDZero mode.
+
+## Revision 39
+- The start-up HDZero answer is saved in flash (Preferences) and becomes the
+  default next time: with no press during the countdown, the saved answer is
+  used. The default box is marked and the countdown says what will happen.
+  Saved only when the answer changes.
+
+## Revision 38
+- HDZero mode is now chosen from a start-up question, "Enable HDZero
+  specifics?": KEY_R = Yes, KEY_L = No. With no press it starts normally (No)
+  after a 5 second on-screen countdown. Replaces holding KEY_L at power-on.
+
+## Revision 37
+- HDZero features are now optional: hold KEY_L while powering on to enable
+  HDZero mode (the Quietest for HDZero page, blue outlines on HDZero-usable
+  channels, and a blue "HDZ" marker on the grid pages). Without it, KEY_R
+  from Quietest Channels returns to Activity. A press just after power-on,
+  during start-up, also counts.
+
+## Revision 36
+- On the Activity and Noise grids, channels an HDZero VTX can use (R1-R8,
+  E1, F1, F2, F4, L1-L8) have a blue outline. The white highlight stays
+  outermost when both apply; frequency labels moved up 1 px to clear it.
+
 ## Revision 35
 - New "Quietest for HDZero" page after Quietest Channels: the same ranked
   list, limited to channels an HDZero VTX can use (R1-R8, E1, F1, F2, F4,

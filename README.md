@@ -58,11 +58,13 @@ for what changed in each revision.
 ## Screens
 Pages in KEY_R order: Activity -> Spectrum -> Noise -> Quietest -> HDZero ->
 Activity. KEY_L goes back: Activity -> Noise -> Spectrum -> Activity, and
-HDZero -> Quietest -> Noise. Quietest Channels is only reached with KEY_R from Channel Noise, and
-only once there are 60 s of noise history; before that a "Wait longer"
+HDZero -> Quietest -> Noise. The HDZero page exists only in HDZero mode (see
+below); otherwise KEY_R from Quietest goes back to Activity. Quietest Channels is only reached with KEY_R from Channel Noise, and
+only once there are 60 s of noise history; before that a "Wait >60s"
 pop-up shows and the page stays put.
 - **FPV Channel Activity** (grid): all 48 channels; square brightness = power
-  above the noise floor right now.
+  above the noise floor right now. In HDZero mode, channels an HDZero VTX can
+  use have a blue outline (also on the Noise grid).
 - **Spectrum**: continuous sweep of one band in 4 MHz steps (outer channels
   20 MHz beyond the band). Channel numbers sit under faint marker lines; white
   dots are a falling peak hold. Each channel's dB above the floor is printed
@@ -84,12 +86,19 @@ pop-up shows and the page stays put.
 - **Quietest for HDZero**: the same list, limited to channels an HDZero VTX
   can be set to: R1-R8, E1, F1, F2, F4, and L1-L8 once low band is unlocked
   on the VTX ([HDZero VTX docs](https://docs.hd-zero.com/vtx-general)).
-  Reached with KEY_R from Quietest Channels.
+  Reached with KEY_R from Quietest Channels, in HDZero mode only.
+
+**HDZero mode:** at power-on the scanner asks "Enable HDZero specifics?".
+Press KEY_R for Yes or KEY_L for No. The answer is saved and becomes the
+default: with no press during the 5 second countdown, the last answer is used
+(No the very first time). Yes enables the Quietest for HDZero page and the blue outlines, and
+shows a blue "HDZ" marker at the top left of the grid pages.
 
 ## Buttons
 - **KEY_R / KEY_L**: next / previous page (order above).
 - **ENTER (short)** on the grid: cycle the span (15-40 dB, default 15). It sets
-  the grid brightness scale and the spectrum graph height.
+  the grid brightness scale and the spectrum graph height, and is remembered
+  across power cycles.
 - **ENTER (short)** on Channel Noise or either Quietest page: clear the history
   and start over.
   (Re-learning the noise floor also clears it.)

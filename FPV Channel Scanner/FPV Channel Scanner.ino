@@ -1,6 +1,6 @@
 /*
  * FPV Channel Scanner
- * Revision: 35
+ * Revision: 41
  * Board : Waveshare ESP32-C5-LCD-2.73 (ESP32-C5, ILI9488 320x320 SPI LCD)
  * Core  : Arduino-ESP32 3.3.x  (Tools > Board > "ESP32C5 Dev Module")
  *
@@ -17,7 +17,7 @@
  * found by disassembling Espressif's libphy.a for the ESP32-C5. They may
  * change between core versions. Readings are relative, not calibrated dBm.
  *
- * Five pages, in KEY_R order:
+ * Four pages, plus a fifth in HDZero mode, in KEY_R order:
  *   FPV CHANNEL ACTIVITY (grid) - all 48 FPV channels, square brightness =
  *               power above floor right now
  *   SPECTRUM  - continuous sweep across one band in 4 MHz steps
@@ -28,11 +28,21 @@
  *   QUIETEST CHANNELS - the 16 quietest channels from the Channel Noise
  *               history, in order (1 = quietest), with average dB and busy %.
  *               Reached only by KEY_R from Channel Noise, once there is at
- *               least 60 s of history; before that a "Wait longer" pop-up
+ *               least 60 s of history; before that a "Wait >60s" pop-up
  *               shows and the page doesn't change.
  *   QUIETEST FOR HDZERO - the same list, limited to channels an HDZero VTX
  *               can use: R1-R8, E1, F1, F2, F4 and L1-L8 (low band unlocked).
- *               Reached only by KEY_R from Quietest Channels.
+ *               Reached only by KEY_R from Quietest Channels, and only in
+ *               HDZero mode.
+ *
+ *   HDZero mode: at power-on the scanner asks "Enable HDZero specifics?"
+ *   KEY_R = Yes, KEY_L = No. The answer is saved in flash; with no press
+ *   during the 5 second countdown the saved answer is used (No the first
+ *   time). HDZero mode adds the Quietest for
+ *   HDZero page, a blue outline on HDZero-usable channels on both grid
+ *   pages (inside the white highlight when a box has both), and a blue
+ *   "HDZ" marker at the top left of the grids. Without it, KEY_R from
+ *   Quietest Channels goes back to Activity.
  *
  *   KEY_R: Activity -> Spectrum -> Noise -> Quietest -> HDZero -> Activity
  *   KEY_L: Activity -> Noise -> Spectrum -> Activity;
@@ -40,7 +50,7 @@
  *
  * Buttons:
  *   KEY_L / KEY_R (GPIO2 / GPIO3) = previous / next page (order above)
- *   ENTER (short) on GRID     = cycle the span (dB)
+ *   ENTER (short) on GRID     = cycle the span (dB); saved across power cycles
  *   ENTER (short) on NOISE or either QUIETEST page = clear the noise history
  *   ENTER (short) on SPECTRUM = select the next band button under the graph
  *   ENTER (hold 0.7 s)        = re-learn the noise floor (do it with VTXs off)
@@ -63,6 +73,13 @@
  *   font5x7.h       5x7 bitmap font
  *
  * Revision history: see CHANGELOG.md
+ *   36  Blue outline on HDZero-usable channels on both grid pages
+ *   37  HDZero features only when KEY_L is held at power-on (HDZero mode)
+ *   38  HDZero mode chosen from a start-up question with a 5 s countdown
+ *   39  Start-up answer saved in flash and used as the default next time
+ *   40  Span saved in flash and restored at power-on; HDZero outlines
+ *       confirmed to depend only on HDZero mode
+ *   41  Pop-up text "Wait longer" changed to "Wait >60s"
  */
 
 #include "Scanner.h"
@@ -76,6 +93,7 @@ void setup() {
 #endif
   Serial.begin(115200);
   buildButtonOrder();          // band order for grid rows and spectrum buttons
+  loadSpan();                  // span saved from the last session (15 dB if none)
   delay(200);
   Serial.println("\nFPV Channel Scanner (ESP32-C5)");
 
@@ -91,6 +109,8 @@ void setup() {
 
   lcdInit();
   exioBacklight(100);
+  hdzeroMode = askHdzeroMode();               // KEY_R = yes, KEY_L = no, 5 s = last saved
+  Serial.printf("HDZero mode: %s\n", hdzeroMode ? "on" : "off");
   gridDrawStatic();
   lcdText(4, FOOT_Y + 2, "Starting radio", 2, C_DIM, C_BG);
 
@@ -116,7 +136,9 @@ void loop() {
     evToggle = false; evEnterShort = evEnterLong = false;
     ScreenMode next = pageAfter(mode, pageDir);
     if (next == MODE_QUIET && actTrackedS < QUIET_MIN_HISTORY_S) {
-      showPopup("Wait longer");                      // not enough history yet
+      char msg[16];                                  // not enough history yet
+      snprintf(msg, sizeof(msg), "Wait >%ds", QUIET_MIN_HISTORY_S);
+      showPopup(msg);
       Serial.printf("quietest: %lu of %d s of history, wait longer\n",
                     (unsigned long)actTrackedS, QUIET_MIN_HISTORY_S);
     } else {
@@ -142,6 +164,7 @@ void loop() {
     evEnterShort = false;
     if (mode == MODE_GRID) {                // cycle brightness span
       spanDb = (spanDb >= 40) ? 15 : spanDb + 5;
+      saveSpan();                           // remembered across power cycles
       gridInvalidate(); gridFooterDirty = true;
     } else if (mode == MODE_ACTIVITY) {     // restart the activity sums
       actClear(); actInvalidate(); actFooterDirty = true;

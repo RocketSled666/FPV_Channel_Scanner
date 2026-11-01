@@ -1,6 +1,6 @@
 /*
  * FPV Channel Scanner - Page Noise.cpp
- * Revision: 35
+ * Revision: 41
  *
  * FPV Channel Noise page: long-term statistics for every channel
  * (average dB above floor, % busy, peak), shaded quietest to busiest.
@@ -78,16 +78,11 @@ void actDrawCell(int b, int c, int level, bool peak, int rank) {
   int x = GRID_X + c * (CELL_W + CELL_GAP);
   int y = GRID_Y + bandRow[b] * (CELL_H + CELL_GAP);
   RGB col = scaleColor(C_RED, level / 32.0f);          // black -> red
-  if (peak) {
-    lcdFill(x, y, CELL_W, CELL_H, 255, 255, 255);
-    lcdFillC(x + 2, y + 2, CELL_W - 4, CELL_H - 4, col);
-  } else {
-    lcdFillC(x, y, CELL_W, CELL_H, col);
-  }
+  drawGridBox(x, y, col, peak, hdzeroMode && HDZERO_OK[b][c]);
   char f[6];
   snprintf(f, sizeof(f), "%u", FPV_MHZ[b][c]);
   RGB tc = level > 16 ? RGB{ 0, 0, 0 } : C_DIM;
-  lcdText(x + (CELL_W - 24) / 2, y + CELL_H - 11, f, 1, tc, col);
+  lcdText(x + (CELL_W - 24) / 2, y + CELL_H - 12, f, 1, tc, col);
   if (rank > 0) {
     char r[3];
     snprintf(r, sizeof(r), "%d", rank);

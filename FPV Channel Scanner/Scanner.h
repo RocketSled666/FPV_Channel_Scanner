@@ -1,6 +1,6 @@
 /*
  * FPV Channel Scanner - Scanner.h
- * Revision: 35
+ * Revision: 41
  *
  * Shared declarations: every global variable (defined in State.cpp) and
  * every function, grouped by the file that defines it. Each .cpp file
@@ -75,6 +75,7 @@ extern ButtonState btnKeyR;
 extern ButtonState btnEnter;
 extern bool evEnterShort, evEnterLong, evToggle;
 extern int pageDir;              // +1 = KEY_R (forward), -1 = KEY_L (back)
+extern bool hdzeroMode;       // chosen at start-up: HDZero page + outlines
 extern uint32_t lastInputPollMs;
 extern bool gridFooterDirty, specFooterDirty;
 extern int learnShownPct, learnShownY;   // progress bar currently drawn
@@ -117,6 +118,10 @@ int nextBandInButtonOrder(int band);
 
 // ---------------------------------------------------------------- Screen Common.cpp
 void drawGridFrame(const char *title, RGB titleColor);
+void drawGridBox(int x, int y, RGB fill, bool highlight, bool hdzero);
+bool askHdzeroMode();
+void loadSpan();
+void saveSpan();
 void updateScanDots();
 void drawScanning(int y);
 void drawSpanLabel();

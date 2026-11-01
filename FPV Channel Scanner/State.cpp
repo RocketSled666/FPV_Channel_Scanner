@@ -1,6 +1,6 @@
 /*
  * FPV Channel Scanner - State.cpp
- * Revision: 35
+ * Revision: 41
  *
  * Definitions of all global state shared between the pages.
  */
@@ -70,6 +70,7 @@ ButtonState btnKeyR  = { PIN_KEY_R,     false, 0, false };
 ButtonState btnEnter = { PIN_BTN_ENTER, false, 0, false };
 bool evEnterShort = false, evEnterLong = false, evToggle = false;
 int  pageDir = 1;              // +1 = KEY_R (forward), -1 = KEY_L (back)
+bool hdzeroMode = false;       // chosen at start-up: HDZero page + outlines
 uint32_t lastInputPollMs = 0;
 bool  gridFooterDirty = true, specFooterDirty = true;
 int   learnShownPct = -1, learnShownY = -1;   // progress bar currently drawn
