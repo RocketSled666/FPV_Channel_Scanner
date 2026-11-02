@@ -1,6 +1,6 @@
 /*
  * FPV Channel Scanner - Page Noise.cpp
- * Revision: 46
+ * Revision: 56
  *
  * FPV Channel Noise page: long-term statistics for every channel
  * (average dB above floor, % busy, peak), shaded quietest to busiest.

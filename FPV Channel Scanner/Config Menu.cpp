@@ -1,14 +1,17 @@
 /*
  * FPV Channel Scanner - Config Menu.cpp
- * Revision: 46
+ * Revision: 56
  *
  * Configuration menu, opened by holding KEY_L + KEY_R for CONFIG_HOLD_MS on
  * any page.
  *
- * Menu: one page per screen of the scanner, titled like that screen (FPV
- * Channel Activity, Spectrum, FPV Channel Noise, Quietest Channels, Quietest
- * for HDZero) plus General, listing its settings, then a last page to Save
- * or Discard. The page title is shown on a blue bar. All pages form one list:
+ * Menu: a Help page first (what each button does on each screen), then one
+ * page per screen of the scanner, titled like that screen (FPV Channel
+ * Activity, Spectrum, FPV Channel Noise, Quietest Channels, Quietest for
+ * HDZero) plus General, listing its settings, then a last page to Save or
+ * Discard. The page title is shown on a blue bar. All pages form one list
+ * (on the Help page, KEY_R or ENTER goes to the first settings page and
+ * KEY_L to "Save and restart" on the Save / Discard page):
  *   KEY_L / KEY_R  move up / down (moving past the end of a page goes to the
  *                  next or previous page)
  *   ENTER          on an On/Off setting: flip it
@@ -35,6 +38,7 @@ static const char *ACTION_HELP[NUM_ACTIONS] = { "Write the settings to flash and
                                                 "Forget changes made here and restart",
                                                 "Load every default value (then Save)" };
 static const char *FINISH_PAGE = "Save / Discard";
+static const char *HELP_PAGE   = "Help";
 
 // ---------------------------------------------------------------- buttons
 // Debounced press detection with auto-repeat while held.
@@ -68,9 +72,15 @@ static void drawCentered(int y, const char *s, int scale, RGB fg) {
 }
 
 // ---------------------------------------------------------------- menu drawing
-static int  menuTotal()          { return NUM_SETTINGS + NUM_ACTIONS; }
-static bool isAction(int item)   { return item >= NUM_SETTINGS; }
-static const char *itemPage(int item) { return isAction(item) ? FINISH_PAGE : SETTINGS[item].page; }
+// Menu items: 0 = the Help page, then every setting, then the actions.
+static int  menuTotal()          { return 1 + NUM_SETTINGS + NUM_ACTIONS; }
+static bool isHelp(int item)     { return item == 0; }
+static bool isAction(int item)   { return item >= 1 + NUM_SETTINGS; }
+static int  setIdx(int item)     { return item - 1; }                  // index into SETTINGS[]
+static int  actIdx(int item)     { return item - 1 - NUM_SETTINGS; }   // ACT_SAVE...
+static const char *itemPage(int item) {
+  return isHelp(item) ? HELP_PAGE : isAction(item) ? FINISH_PAGE : SETTINGS[setIdx(item)].page;
+}
 
 // First item on the same page as item, and how many items that page has.
 static void pageRange(int item, int &first, int &count) {
@@ -112,11 +122,11 @@ static void drawMenuRow(int item, int row, bool selected, bool editing) {
   int y = MENU_ROW_Y0 + row * MENU_ROW_PITCH;
   RGB bg = selected ? C_SEL : C_BG;
   lcdFillC(4, y - 5, LCD_W - 8, MENU_ROW_PITCH - 4, bg);
-  const char *name = isAction(item) ? ACTION_NAME[item - NUM_SETTINGS] : SETTINGS[item].name;
+  const char *name = isAction(item) ? ACTION_NAME[actIdx(item)] : SETTINGS[setIdx(item)].name;
   lcdText(10, y, name, 2, selected ? C_ACC : C_TEXT, bg);
   if (isAction(item)) return;
   char v[16];
-  formatSetting(item, v, sizeof(v));
+  formatSetting(setIdx(item), v, sizeof(v));
   int w = 12 * (int)strlen(v);
   int x = LCD_W - 10 - w;
   if (editing) {                                   // value being edited: blue box
@@ -129,21 +139,85 @@ static void drawMenuRow(int item, int row, bool selected, bool editing) {
 
 static void drawMenuFooter(int item, bool editing) {
   lcdFill(0, MENU_HELP_Y - 2, LCD_W, LCD_H - MENU_HELP_Y + 2, 0, 0, 0);
-  const char *help = isAction(item) ? ACTION_HELP[item - NUM_SETTINGS] : SETTINGS[item].help;
+  const char *help = isHelp(item)   ? "Settings follow on the next pages"
+                   : isAction(item) ? ACTION_HELP[actIdx(item)] : SETTINGS[setIdx(item)].help;
   lcdText(4, MENU_HELP_Y, help, 1, C_DIM, C_BG);
-  const char *hint;
-  if (editing)                          hint = "KEY_L  -      KEY_R  +      ENTER  set";
-  else if (isAction(item))              hint = "KEY_L  up     KEY_R  down   ENTER  select";
-  else if (SETTINGS[item].isToggle)     hint = "KEY_L  up     KEY_R  down   ENTER  on/off";
-  else                                  hint = "KEY_L  up     KEY_R  down   ENTER  edit";
-  lcdText(4, MENU_HINT_Y, hint, 1, C_TEXT, C_BG);
+  // Button hints, in three groups: "Left:" at the left edge, "ENTER:" against
+  // the right edge and "Right:" centred between them. Left / Right say "Back" /
+  // "Forward" when the selection is on the top / last line, since the next
+  // press changes page.
+  const char *l, *r, *e;
+  if (editing)            { l = "-"; r = "+"; e = "Set"; }
+  else if (isHelp(item))  { l = "Save Changes"; r = "Forward"; e = "Forward"; }
+  else {
+    int first, count;
+    pageRange(item, first, count);
+    l = item == first             ? "Back"    : "Up";
+    r = item == first + count - 1 ? "Forward" : "Down";
+    e = isAction(item) ? "Select" : "Modify Value";
+  }
+  char hl[24], hr[24], he[24];
+  snprintf(hl, sizeof(hl), "Left: %s", l);
+  snprintf(hr, sizeof(hr), "Right: %s", r);
+  snprintf(he, sizeof(he), "ENTER: %s", e);
+  int leftEnd = 4 + 6 * (int)strlen(hl);
+  int xe = LCD_W - 4 - 6 * (int)strlen(he);
+  int xr = (leftEnd + xe - 6 * (int)strlen(hr)) / 2;           // centred in the gap
+  lcdText(4, MENU_HINT_Y, hl, 1, C_TEXT, C_BG);
+  lcdText(xr, MENU_HINT_Y, hr, 1, C_TEXT, C_BG);
+  lcdText(xe, MENU_HINT_Y, he, 1, C_TEXT, C_BG);
   lcdText(4, MENU_HINT_Y + 14, "Changes apply after Save and restart", 1, C_DIM, C_BG);
+}
+
+// Help page: what every button does, screen by screen (as in the .ino header).
+// Headings in yellow; each line has the button(s) on the left, in white, and
+// what they do on the right, in grey.
+#define HELP_Y0     58
+#define HELP_PITCH  11
+#define HELP_COL2   118     // x of the description column (one space after 16 characters)
+
+static void helpHeading(int &y, const char *s) {
+  y += 4;
+  lcdText(4, y, s, 1, C_ACC, C_BG);
+  y += HELP_PITCH;
+}
+static void helpLine(int &y, const char *keys, const char *what) {
+  lcdText(10, y, keys, 1, C_TEXT, C_BG);
+  lcdText(HELP_COL2, y, what, 1, C_DIM, C_BG);
+  y += HELP_PITCH;
+}
+
+static void drawHelpPage() {
+  int y = HELP_Y0;
+  char s[56];
+  helpHeading(y, "All screens");
+  helpLine(y, "Left / Right:",    "previous / next page");
+  helpLine(y, "Hold Left+Right:", "5 s: open Configuration menu");
+  helpLine(y, "Hold ENTER 0.7s:", "re-learn noise floor (VTXs off)");
+  helpHeading(y, "ENTER (short press)");
+  helpLine(y, "Activity:",        "cycle the span (dB), saved");
+  helpLine(y, "Spectrum:",        "select the next band");
+  helpLine(y, "Noise / Quietest:", "clear the noise history");
+  helpHeading(y, "Page order");
+  lcdText(10, y, cfg.hdzero ? "Right: Activity > Spectrum > Noise > Quietest > HDZ"
+                            : "Right: Activity > Spectrum > Noise > Quietest",
+          1, C_TEXT, C_BG);
+  y += HELP_PITCH;
+  lcdText(10, y, "Left:  goes back the same way", 1, C_TEXT, C_BG);
+  y += HELP_PITCH;
+  snprintf(s, sizeof(s), "Quietest opens after %d s of noise history", cfg.quietMinS);
+  lcdText(10, y, s, 1, C_DIM, C_BG);
+  y += HELP_PITCH;
+  helpHeading(y, "Configuration");
+  helpLine(y, "Left / Right:",    "up / down; - / + when editing");
+  helpLine(y, "ENTER:",           "edit, set, on/off or select");
 }
 
 static void drawMenuPage(int item, bool editing, const Settings &saved) {
   lcdFill(0, 0, LCD_W, LCD_H, 0, 0, 0);
   lcdText(4, 4, "Configuration", 2, C_ACC, C_BG);
   drawMenuHeader(item, saved);
+  if (isHelp(item)) { drawHelpPage(); drawMenuFooter(item, false); return; }
   int first, count;
   pageRange(item, first, count);
   for (int r = 0; r < count; r++) drawMenuRow(first + r, r, first + r == item, editing && first + r == item);
@@ -173,7 +247,7 @@ void runConfigMenu() {
   MenuKey kL = { PIN_KEY_L,     digitalRead(PIN_KEY_L) == LOW,     millis(), 0 };
   MenuKey kR = { PIN_KEY_R,     digitalRead(PIN_KEY_R) == LOW,     millis(), 0 };
   MenuKey kE = { PIN_BTN_ENTER, digitalRead(PIN_BTN_ENTER) == LOW, millis(), 0 };
-  int item = 0;
+  int item = 0;                            // opens on the Help page
   bool editing = false;
   drawMenuPage(item, editing, saved);
 
@@ -186,7 +260,7 @@ void runConfigMenu() {
 
     if (editing) {
       if (up || down) {
-        stepSetting(item, down ? +1 : -1);       // KEY_R = +, KEY_L = -
+        stepSetting(setIdx(item), down ? +1 : -1);       // KEY_R = +, KEY_L = -
         drawMenuRow(item, item - first, true, true);
         drawMenuHeader(item, saved);
       }
@@ -197,6 +271,7 @@ void runConfigMenu() {
       }
     } else if (up || down) {
       int next = (item + (down ? 1 : -1) + menuTotal()) % menuTotal();
+      if (isHelp(item) && up) next = 1 + NUM_SETTINGS + ACT_SAVE;   // Help: KEY_L -> "Save and restart"
       if (strcmp(itemPage(next), itemPage(item)) != 0) {
         item = next;
         drawMenuPage(item, false, saved);         // moved onto another page
@@ -207,8 +282,11 @@ void runConfigMenu() {
         drawMenuFooter(item, false);
       }
     } else if (enter) {
-      if (isAction(item)) {
-        int a = item - NUM_SETTINGS;
+      if (isHelp(item)) {
+        item = 1;                                 // ENTER on Help: first settings page
+        drawMenuPage(item, false, saved);
+      } else if (isAction(item)) {
+        int a = actIdx(item);
         if (a == ACT_SAVE)    { saveSettings(); showMessageAndRestart("Settings saved"); }
         if (a == ACT_DISCARD) { showMessageAndRestart("Changes discarded"); }
         if (a == ACT_DEFAULTS) {
@@ -217,8 +295,9 @@ void runConfigMenu() {
           lcdFill(0, MENU_HELP_Y - 2, LCD_W, 12, 0, 0, 0);
           lcdText(4, MENU_HELP_Y, "Defaults loaded - Save to keep them", 1, C_ACC, C_BG);
         }
-      } else if (SETTINGS[item].isToggle) {
-        *SETTINGS[item].value = *SETTINGS[item].value ? 0 : 1;
+      } else if (SETTINGS[setIdx(item)].isToggle) {
+        int *v = SETTINGS[setIdx(item)].value;
+        *v = *v ? 0 : 1;
         drawMenuRow(item, item - first, true, false);
         drawMenuHeader(item, saved);
       } else {

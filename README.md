@@ -77,9 +77,11 @@ pop-up shows and the page stays put.
 - **Spectrum**: continuous sweep of one band in 4 MHz steps (outer channels
   20 MHz beyond the band), with the point nearest each channel moved onto the
   channel's exact frequency, so every channel is measured directly. Channel numbers sit under faint marker lines; white
-  dots are a falling peak hold. Each channel's dB above the floor is printed
+  dots are a falling peak hold. A 31-pixel waterfall in a white box under the
+  graph shows the last 31 sweeps, newest on top (dark blue = weak, bright yellow =
+  strong). Each channel's dB above the floor is printed
   under its number (blank below 3 dB, strongest in amber). Band buttons
-  L E R A B F sit under the graph.
+  L E R A B F are a row above the graph, as wide as it (selected band in green).
 - **FPV Channel Noise**: same layout. Every channel keeps its own long-term
   statistics from start-up (or the last reset): average dB above the floor,
   % of time busy (3 dB or more above the floor) and peak. Nothing fades, so
@@ -109,8 +111,9 @@ KEY_L and KEY_R together during it to open the Configuration menu; otherwise
 the Activity grid follows. You can also open the menu at any time by holding
 KEY_L and KEY_R together for 5 seconds on any page.
 
-The menu has one page per screen, titled like that screen on a blue bar, then
-a Save / Discard page:
+The menu opens on a Help page that lists what each button does on each
+screen. After it come one page per screen, titled like that screen on a blue
+bar, then a Save / Discard page:
 
 | Page | Settings |
 |---|---|

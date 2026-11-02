@@ -1,6 +1,6 @@
 /*
  * FPV Channel Scanner - Config.h
- * Revision: 46
+ * Revision: 56
  *
  * Hardware pins, tuning constants, shared types, frequency table, colors
  * and the undocumented ESP32-C5 radio access used by the scanner.
@@ -178,15 +178,17 @@ extern "C" int16_t phy_get_rssi(void);
 #define FOOT_Y    (GRID_Y + NUM_BANDS * (CELL_H + CELL_GAP) + 2)
 // spectrum
 #define GX        30                 // graph left
-#define GY        28                 // graph top
+#define BTN_Y     23                 // band buttons, under the title
+#define GY        46                 // graph top, under the band buttons
 #define GW        286                // graph width  (px)
-#define GH        200                // graph height (px)
-#define CH_LBL_Y  (GY + GH + 4)      // channel numbers under the graph
+#define GH        186                // graph height (px)
+#define WF_H      31                 // waterfall height (px) = sweeps of history
+#define WF_Y      (GY + GH + 3)      // waterfall top, inside its white box under the graph
+#define CH_LBL_Y  (WF_Y + WF_H + 4)  // channel numbers under the waterfall box
 #define CH_VAL_Y  (CH_LBL_Y + 10)    // channel dB values under the numbers
-#define BTN_Y     252
-#define BTN_H     30
-#define BTN_W     48
-#define BTN_GAP   5
+#define BTN_H     19                 // band button height
+#define BTN_W     43                 // 6 x 43 + 5 x 6 = 288 = graph box width (GW + 2)
+#define BTN_GAP   6
 #define SPEC_FOOT_Y 290
 
 // ---------------------------------------------------------------- colors
@@ -197,6 +199,7 @@ static const RGB C_ACC   = { 255, 180,   0 };
 static const RGB C_HOT   = {  60, 255, 120 };  // full-brightness signal color
 static const RGB C_MARK  = {  40,  40,  55 };  // channel marker lines in the graph
 static const RGB C_PEAKH = { 255, 255, 255 };  // peak-hold trace
+static const RGB C_BTN_SEL = {  40, 220,  80 };  // selected spectrum band button
 static const RGB C_RED   = { 255,   0,   0 };  // full-intensity activity color
 static const RGB C_RANK  = { 160, 160, 160 };  // rank numbers on the noise page
 static const RGB C_HDZ   = {  40, 120, 255 };  // outline: channel an HDZero VTX can use

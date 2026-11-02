@@ -1,14 +1,64 @@
 /*
  * FPV Channel Scanner - Page Spectrum.cpp
- * Revision: 46
+ * Revision: 56
  *
  * Spectrum page: continuous sweep across one band in SPEC_STEP_MHZ
  * steps, with channel markers, values and band buttons. The sweep point
  * nearest each channel is moved onto the channel's exact frequency, so every
  * channel is measured directly; points are drawn by their real frequency.
+ * Under the graph, in a white box, a WF_H-pixel waterfall shows the last WF_H sweeps, one
+ * pixel row each, newest at the top: weak signal is dark blue, strong signal
+ * bright yellow (through purple and orange).
  */
 
 #include "Scanner.h"
+
+// ---------------------------------------------------------------- waterfall
+static uint8_t wfLevel[WF_H][GW];   // 0..WF_LEVELS-1 per column, ring buffer of sweeps
+static int     wfHead = 0;          // row index of the newest sweep
+static int     wfRows = 0;          // sweeps stored so far (0..WF_H)
+#define WF_LEVELS 64
+static uint8_t wfLut[WF_LEVELS][3];
+
+// Colour ramp: dark blue -> purple -> orange -> bright yellow.
+static void wfBuildLut() {
+  static const float stop[4][4] = {      // position, R, G, B
+    { 0.00f,   0,   0,  60 },
+    { 0.35f, 110,   0, 170 },
+    { 0.70f, 240,  90,  30 },
+    { 1.00f, 255, 255,   0 },
+  };
+  for (int i = 0; i < WF_LEVELS; i++) {
+    float t = i / (float)(WF_LEVELS - 1);
+    int k = 0;
+    while (k < 2 && t > stop[k + 1][0]) k++;
+    float u = (t - stop[k][0]) / (stop[k + 1][0] - stop[k][0]);
+    for (int c = 0; c < 3; c++)
+      wfLut[i][c] = (uint8_t)lroundf(stop[k][c + 1] + (stop[k + 1][c + 1] - stop[k][c + 1]) * u);
+  }
+}
+
+// Forget the history (new band, or the page was redrawn) and draw it empty.
+static void wfReset() {
+  static bool lutReady = false;
+  if (!lutReady) { wfBuildLut(); lutReady = true; }
+  wfHead = 0; wfRows = 0;
+  lcdFill(GX, WF_Y, GW, WF_H, 0, 0, 0);
+}
+
+// Redraw the waterfall: newest sweep on the top row, older ones below it;
+// rows with no sweep yet stay black.
+static void wfDraw() {
+  static uint8_t row[GW * 3];
+  for (int r = 0; r < wfRows; r++) {
+    const uint8_t *lv = wfLevel[(wfHead - r + WF_H) % WF_H];
+    for (int x = 0; x < GW; x++) {
+      const uint8_t *c = wfLut[lv[x]];
+      row[x * 3] = c[0]; row[x * 3 + 1] = c[1]; row[x * 3 + 2] = c[2];
+    }
+    lcdDrawRgbRow(GX, WF_Y + r, GW, row);
+  }
+}
 
 int freqToCol(float mhz) {
   return (int)lroundf((mhz - specLo) * (GW - 1) / (float)(specHi - specLo));
@@ -57,19 +107,22 @@ void specSetBand(int band) {
   }
 }
 
+// Band buttons: square-cornered, in a row under the title, spread so the
+// row lines up exactly with the left and right edges of the graph box.
+// Selected: solid green with a black letter; others greyed out.
 void specDrawButtons() {
-  int totalW = NUM_BANDS * BTN_W + (NUM_BANDS - 1) * BTN_GAP;
-  int x0 = (LCD_W - totalW) / 2;
+  int x0 = GX - 1;                                             // graph box left edge
   for (int i = 0; i < NUM_BANDS; i++) {
     int b = btnOrder[i];
     int x = x0 + i * (BTN_W + BTN_GAP);
     bool sel = b == specBand;
-    RGB edge = sel ? C_ACC : C_DIM;
-    RGB fill = sel ? C_ACC : RGB{ 20, 20, 20 };
-    lcdFillC(x, BTN_Y, BTN_W, BTN_H, edge);
-    lcdFillC(x + 2, BTN_Y + 2, BTN_W - 4, BTN_H - 4, fill);
+    RGB edge = sel ? C_BTN_SEL : RGB{ 70, 70, 70 };
+    RGB fill = sel ? C_BTN_SEL : RGB{ 20, 20, 20 };
+    RGB text = sel ? RGB{ 0, 0, 0 } : RGB{ 130, 130, 130 };
+    lcdFillC(x, BTN_Y, BTN_W, BTN_H, edge);                     // 1 px outline
+    lcdFillC(x + 1, BTN_Y + 1, BTN_W - 2, BTN_H - 2, fill);
     char s[2] = { BAND_NAME[b], 0 };
-    lcdText(x + (BTN_W - 12) / 2, BTN_Y + (BTN_H - 16) / 2, s, 2, sel ? RGB{ 0, 0, 0 } : C_TEXT, fill);
+    lcdText(x + (BTN_W - 12) / 2 + 1, BTN_Y + 2, s, 2, text, fill);
   }
 }
 
@@ -94,6 +147,12 @@ void specDrawStatic() {
   lcdFillC(GX - 1, GY - 1, 1, GH + 2, C_DIM);
   lcdFillC(GX + GW, GY - 1, 1, GH + 2, C_DIM);
 
+  // white box around the waterfall
+  lcdFillC(GX - 1, WF_Y - 1,    GW + 2, 1, C_PEAKH);
+  lcdFillC(GX - 1, WF_Y + WF_H, GW + 2, 1, C_PEAKH);
+  lcdFillC(GX - 1, WF_Y - 1,    1, WF_H + 2, C_PEAKH);
+  lcdFillC(GX + GW, WF_Y - 1,   1, WF_H + 2, C_PEAKH);
+
   // channel numbers under their marker lines
   for (int c = 0; c < NUM_CH; c++) {
     int x = GX + freqToCol(FPV_MHZ[specBand][c]);
@@ -105,6 +164,7 @@ void specDrawStatic() {
 
   for (int x = 0; x < GW; x++) { colShownH[x] = -1; colShownPk[x] = -1; }
   for (int c = 0; c < NUM_CH; c++) { chValShown[c] = -2; chValHot[c] = false; }
+  wfReset();
   specFooterDirty = true;
   learnShownPct = -1; scanAnimY = -1;
 }
@@ -214,6 +274,9 @@ void specSweep() {
   uint32_t tDraw0 = micros();
   float bestAbove = -1e9f, bestMhz = specLo;
   int seg = 0;
+  wfHead = (wfHead + 1) % WF_H;             // this sweep's waterfall row
+  if (wfRows < WF_H) wfRows++;
+  uint8_t *wfNew = wfLevel[wfHead];
   for (int x = 0; x < GW; x++) {
     float f = specLo + x * (float)(specHi - specLo) / (GW - 1);
     while (seg < specPts - 2 && specMhz[seg + 1] < f) seg++;
@@ -225,6 +288,7 @@ void specSweep() {
     float above = a0 + (a1 - a0) * t;     // trace is drawn even while learning
     if (above > bestAbove) { bestAbove = above; bestMhz = f; }
     int h = constrain((int)lroundf(above * GH / cfg.span), 0, GH);
+    wfNew[x] = (uint8_t)constrain((int)lroundf(above * (WF_LEVELS - 1) / cfg.span), 0, WF_LEVELS - 1);
     colPeak[x] = max(colPeak[x] - PEAK_DECAY_PX, (float)h); // peak hold, falling
     specDrawColumn(x, h, (int)colPeak[x]);
     if ((x & 31) == 0) pollInput();
@@ -236,6 +300,7 @@ void specSweep() {
     for (int i = 0; i < specPts; i++) { float d = fabsf(specMhz[i] - bestMhz); if (d < bd) { bd = d; bi = i; } }
     bestMhz = specMhz[bi]; }
 
+  wfDraw();
   specDrawChannelValues(flo);
 
   // Below 3 dB the footer just says SCANNING, so noise must not trigger redraws.

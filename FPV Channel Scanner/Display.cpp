@@ -1,6 +1,6 @@
 /*
  * FPV Channel Scanner - Display.cpp
- * Revision: 46
+ * Revision: 56
  *
  * ILI9488 320x320 LCD driver (SPI, 18-bit color), text drawing with the
  * 5x7 font, and the CH32V003 IO expander used for LCD reset and backlight.

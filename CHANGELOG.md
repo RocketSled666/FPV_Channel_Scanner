@@ -2,6 +2,66 @@
 
 Revision numbers match the `Revision:` line in the source headers.
 
+## Revision 56
+- Spectrum band buttons are square-cornered again (43 x 19 px, large letter)
+  and spread evenly so the row lines up exactly with the left and right
+  edges of the graph box. Selected band still green, others greyed out.
+
+## Revision 55
+- White 1-pixel box around the spectrum waterfall.
+- Waterfall 31 pixels high (6 more rows), so it shows the last 31 sweeps.
+- Band circles 19 px across instead of 15. The selected band is solid green
+  with a black letter; the others are greyed out (dark grey outline, grey
+  letter).
+
+## Revision 54
+- Spectrum band circles moved to the top of the page, just under the title.
+  The graph (same 186 px height), waterfall and channel numbers / values
+  moved down below them.
+- Waterfall 25 pixels high, so it shows the last 25 sweeps.
+
+## Revision 53
+- Spectrum band buttons moved down 5 pixels, made half as tall (15 px instead
+  of 30) and drawn as circles 15 px across, with a 1 px outline and the
+  letter in the small font.
+- The waterfall uses the freed space: 15 pixels, so the last 15 sweeps.
+
+## Revision 52
+- Spectrum page: the graph is 14 pixels shorter (186 instead of 200) to make
+  room for a 10-pixel waterfall directly under it. Each sweep adds one pixel
+  row at the top and pushes the older ones down, so the last 10 sweeps are
+  visible. Colour shows the signal above the floor on the same span as the
+  graph: dark blue for weak, through purple and orange, to bright yellow for
+  strong. The history clears when the band changes.
+
+## Revision 51
+- Configuration hints say "Back" / "Forward" instead of "Page Back" /
+  "Page Fwd" (Help page: "Left: Save Changes  Right: Forward  ENTER: Forward").
+
+## Revision 50
+- Configuration hint lines and the Help page call the keys "Left:",
+  "Right:" and "ENTER:" (with a colon) instead of KEY_L / KEY_R / ENTER.
+
+## Revision 49
+- Configuration hints say "Page Back" / "Page Fwd" instead of "Prev Page" /
+  "Next Page" (Help page: "KEY_L Save Changes  KEY_R Page Fwd  ENTER Page Fwd").
+
+## Revision 48
+- Configuration hint line reworded: KEY_L shows "Prev Page" when the top line
+  of a page is selected (otherwise "Up"), KEY_R shows "Next Page" on the last
+  line (otherwise "Down"), and ENTER shows "Modify Value" on a setting
+  ("Select" on Save / Discard, "-", "+" and "Set" while editing).
+- Help page hint: "KEY_L Save Changes  KEY_R Next Page  ENTER Next Page".
+  KEY_L on the Help page now goes straight to "Save and restart".
+
+## Revision 47
+- Splash hint now reads "Press forward+backward buttons now for / Settings
+  screen, or hold for >5s at any time".
+- The Configuration menu opens on a new Help page listing what each button
+  does on each screen (all screens, ENTER per screen, page order, and the
+  menu itself). KEY_R or ENTER goes on to the first settings page; KEY_L
+  wraps to Save / Discard.
+
 ## Revision 46
 - Start-up splash screen from Splash.PNG, shown for 5 seconds while the radio
   starts, with a blue hint at the bottom: "Press forward+backward buttons now

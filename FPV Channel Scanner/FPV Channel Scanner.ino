@@ -1,6 +1,6 @@
 /*
  * FPV Channel Scanner
- * Revision: 46
+ * Revision: 56
  * Board : Waveshare ESP32-C5-LCD-2.73 (ESP32-C5, ILI9488 320x320 SPI LCD)
  * Core  : Arduino-ESP32 3.3.x  (Tools > Board > "ESP32C5 Dev Module")
  *
@@ -21,7 +21,9 @@
  *   FPV CHANNEL ACTIVITY (grid) - all 48 FPV channels, square brightness =
  *               power above floor right now
  *   SPECTRUM  - continuous sweep across one band in 4 MHz steps, with the
- *               point nearest each channel moved onto its exact frequency
+ *               point nearest each channel moved onto its exact frequency; under
+ *               the graph a 31-pixel waterfall shows the last 31 sweeps
+ *               (newest on top), dark blue = weak, bright yellow = strong
  *   FPV CHANNEL NOISE - same layout as the grid; each box = its signal above
  *               the floor averaged over all time since start or the last
  *               reset, shaded from the quietest channel (black) to the
@@ -37,12 +39,15 @@
  *               HDZero mode.
  *
  * Start-up: a splash screen (Splash.PNG) shows for 5 s with a blue hint,
- *   "Press forward+backward buttons now for Settings screen"; the radio
+ *   "Press forward+backward buttons now for Settings screen, or hold for
+ *   >5s at any time"; the radio
  *   starts underneath it. Pressing KEY_L + KEY_R together during the splash
  *   opens the Configuration menu; otherwise the Activity grid follows.
  *
  * Configuration: hold KEY_L + KEY_R for 5 s on any page (or press both
- *   during the splash) to open the Configuration menu. The menu lists every setting, one page per screen,
+ *   during the splash) to open the Configuration menu. It opens on a Help
+ *   page listing what each button does on each screen, then lists every
+ *   setting, one page per screen,
  *   titled like that screen on a blue bar (FPV Channel Activity, Spectrum,
  *   FPV Channel Noise, Quietest Channels, Quietest for HDZero) plus General,
  *   then a Save / Discard page; both restart the device. In the
@@ -66,7 +71,7 @@
  *   KEY_L + KEY_R held 5 s    = open the Configuration menu from any page
  *   ENTER (short) on GRID     = cycle the span (dB); saved across power cycles
  *   ENTER (short) on NOISE or either QUIETEST page = clear the noise history
- *   ENTER (short) on SPECTRUM = select the next band button under the graph
+ *   ENTER (short) on SPECTRUM = select the next band button above the graph
  *   ENTER (hold 0.7 s)        = re-learn the noise floor (do it with VTXs off)
  *
  * Arduino IDE note: only setup() and loop() live in this .ino, so the IDE's
@@ -109,6 +114,22 @@
  *       pages titled like the screens they configure, on a blue bar
  *   46  5 s start-up splash screen from Splash.PNG with a blue hint; both
  *       page keys pressed during it open the Configuration menu
+ *   47  Splash hint adds "or hold for >5s at any time"; Configuration menu
+ *       opens on a Help page listing the buttons for each screen
+ *   48  Menu hint line: "Prev Page" / "Next Page" on a page's top / last
+ *       line, "Modify Value" on settings; Help page KEY_L = "Save Changes"
+ *   49  Hints say "Page Back" / "Page Fwd" instead of "Prev Page" / "Next Page"
+ *   50  Menu and Help page name the keys "Left:", "Right:" and "ENTER:"
+ *   51  Hints say "Back" / "Forward" instead of "Page Back" / "Page Fwd"
+ *   52  Spectrum graph 14 px shorter; 10 px waterfall of the last 10 sweeps
+ *       under it (dark blue = weak, bright yellow = strong)
+ *   53  Band buttons 5 px lower, 15 px round circles; waterfall 15 px
+ *   54  Band circles moved to the top, under the title; graph, waterfall
+ *       and channel labels moved down; waterfall 25 px
+ *   55  White box around the waterfall, 31 px; band circles 19 px, selected
+ *       band green, others greyed out
+ *   56  Band buttons square again, spread to line up with the graph box
+ *       edges (6 x 43 px, 6 px gaps)
  */
 
 #include "Scanner.h"
