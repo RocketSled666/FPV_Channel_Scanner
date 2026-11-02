@@ -172,3 +172,47 @@ bar, then a Save / Discard page:
 
 ## License
 MIT - see [LICENSE](LICENSE).
+
+## Screens
+Simulated screenshots (the firmware's own drawing code run on a PC with a
+simulated radio), in the order the software shows them: the splash, the
+Configuration menu pages, then the scanner pages in Right-button order.
+
+<table>
+<tr>
+<td align="center"><img src="docs/screenshots/01%20Splash.png" width="320" alt="Start-up splash (5 s)"><br>Start-up splash (5 s)</td>
+<td align="center"><img src="docs/screenshots/02%20Configuration%20-%20Help.png" width="320" alt="Configuration: Help (opens first)"><br>Configuration: Help (opens first)</td>
+</tr>
+<tr>
+<td align="center"><img src="docs/screenshots/03%20Configuration%20-%20FPV%20Channel%20Activity.png" width="320" alt="Configuration: FPV Channel Activity"><br>Configuration: FPV Channel Activity</td>
+<td align="center"><img src="docs/screenshots/04%20Configuration%20-%20Spectrum.png" width="320" alt="Configuration: Spectrum"><br>Configuration: Spectrum</td>
+</tr>
+<tr>
+<td align="center"><img src="docs/screenshots/05%20Configuration%20-%20FPV%20Channel%20Noise.png" width="320" alt="Configuration: FPV Channel Noise"><br>Configuration: FPV Channel Noise</td>
+<td align="center"><img src="docs/screenshots/06%20Configuration%20-%20Quietest%20Channels.png" width="320" alt="Configuration: Quietest Channels"><br>Configuration: Quietest Channels</td>
+</tr>
+<tr>
+<td align="center"><img src="docs/screenshots/07%20Configuration%20-%20Quietest%20for%20HDZero.png" width="320" alt="Configuration: Quietest for HDZero"><br>Configuration: Quietest for HDZero</td>
+<td align="center"><img src="docs/screenshots/08%20Configuration%20-%20General.png" width="320" alt="Configuration: General"><br>Configuration: General</td>
+</tr>
+<tr>
+<td align="center"><img src="docs/screenshots/09%20Configuration%20-%20Save%20-%20Discard.png" width="320" alt="Configuration: Save / Discard"><br>Configuration: Save / Discard</td>
+<td align="center"><img src="docs/screenshots/10%20Configuration%20-%20editing%20a%20value.png" width="320" alt="Configuration: editing a value"><br>Configuration: editing a value</td>
+</tr>
+<tr>
+<td align="center"><img src="docs/screenshots/11%20FPV%20Channel%20Activity.png" width="320" alt="FPV Channel Activity"><br>FPV Channel Activity</td>
+<td align="center"><img src="docs/screenshots/12%20FPV%20Channel%20Activity%20%28HDZero%20mode%29.png" width="320" alt="FPV Channel Activity, HDZero mode"><br>FPV Channel Activity, HDZero mode</td>
+</tr>
+<tr>
+<td align="center"><img src="docs/screenshots/13%20Spectrum%20%28Raceband%29.png" width="320" alt="Spectrum (Raceband) with waterfall"><br>Spectrum (Raceband) with waterfall</td>
+<td align="center"><img src="docs/screenshots/14%20FPV%20Channel%20Noise.png" width="320" alt="FPV Channel Noise"><br>FPV Channel Noise</td>
+</tr>
+<tr>
+<td align="center"><img src="docs/screenshots/15%20FPV%20Channel%20Noise%20%28HDZero%20mode%29.png" width="320" alt="FPV Channel Noise, HDZero mode"><br>FPV Channel Noise, HDZero mode</td>
+<td align="center"><img src="docs/screenshots/16%20FPV%20Channel%20Noise%20with%20Wait%20popup.png" width="320" alt="Wait &gt;60s pop-up (Quietest not ready)"><br>Wait &gt;60s pop-up (Quietest not ready)</td>
+</tr>
+<tr>
+<td align="center"><img src="docs/screenshots/17%20Quietest%20Channels.png" width="320" alt="Quietest Channels"><br>Quietest Channels</td>
+<td align="center"><img src="docs/screenshots/18%20Quietest%20for%20HDZero.png" width="320" alt="Quietest for HDZero"><br>Quietest for HDZero</td>
+</tr>
+</table>
