@@ -1,6 +1,6 @@
 /*
  * FPV Channel Scanner - Config.h
- * Revision: 56
+ * Revision: 63
  *
  * Hardware pins, tuning constants, shared types, frequency table, colors
  * and the undocumented ESP32-C5 radio access used by the scanner.
@@ -17,10 +17,10 @@
 // ---------------------------------------------------------------- types (keep above all functions)
 struct RGB { uint8_t r, g, b; };
 // Pages. MODE_GRID is "FPV Channel Activity", MODE_ACTIVITY is "FPV Channel
-// Noise", MODE_QUIET is "Quietest Channels", MODE_HDZERO is "Quietest for
-// HDZero". Order is set by pageAfter().
+// Noise", MODE_QUIET is "Quietest Channels", MODE_IMD is "IMD-Free Channels",
+// MODE_HDZERO is "Quietest for HDZero". Order is set by pageAfter().
 enum ScreenMode { MODE_GRID = 0, MODE_SPECTRUM = 1, MODE_ACTIVITY = 2, MODE_QUIET = 3,
-                  MODE_HDZERO = 4 };
+                  MODE_HDZERO = 4, MODE_IMD = 5 };
 struct StallStat {        // frequencies whose measurement timed out
   uint16_t mhz;
   uint32_t count;
@@ -44,6 +44,8 @@ struct Settings {
   int hdzLowBand;    // HDZero lists/outlines include L1-L8
   int hdzE1F1;       // HDZero lists/outlines include E1 and F1
   int backlight;     // LCD backlight, %
+  int imdMinSep;     // IMD-free page: smallest gap allowed between two channels, MHz
+  int imdLowBand;    // IMD-free page: may use L1-L8 (outside HDZero mode)
 };
 
 // One line in the Configuration menu (Settings.cpp)
@@ -202,6 +204,7 @@ static const RGB C_PEAKH = { 255, 255, 255 };  // peak-hold trace
 static const RGB C_BTN_SEL = {  40, 220,  80 };  // selected spectrum band button
 static const RGB C_RED   = { 255,   0,   0 };  // full-intensity activity color
 static const RGB C_RANK  = { 160, 160, 160 };  // rank numbers on the noise page
+static const RGB C_GOOD  = {  40, 220,  80 };  // IMD score 100
 static const RGB C_HDZ   = {  40, 120, 255 };  // outline: channel an HDZero VTX can use
 
 // ---------------------------------------------------------------- layout / UI constants
@@ -211,3 +214,15 @@ static const RGB C_HDZ   = {  40, 120, 255 };  // outline: channel an HDZero VTX
 #define QUIET_Y0     34      // first row
 #define QUIET_PITCH  31      // row spacing
 #define QUIET_COL_W  158
+// IMD-free page
+#define IMD_COLS     4       // columns for 3, 4, 5 and 6 pilots
+#define IMD_MIN_N    3
+#define IMD_MAX_N    6
+#define IMD_COL_W    80
+#define IMD_HEAD_Y   32      // "3 pilots" headings
+#define IMD_Y0       48      // first channel row
+#define IMD_PITCH    30      // channel row spacing (scale-3 text)
+#define IMD_SCORE_Y  (IMD_Y0 + IMD_MAX_N * IMD_PITCH + 2)   // "IMD 100" under each column
+#define IMD_NEAR_MHZ 35      // an IMD product this close to a channel in use hurts it
+#define IMD_REFRESH_MS 10000 // re-pick with the latest noise history this often
+#define MOVE_FADE_MS 3000    // Quietest / IMD pages: a channel that moves shows red, fading back over this

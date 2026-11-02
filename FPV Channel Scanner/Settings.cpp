@@ -1,6 +1,6 @@
 /*
  * FPV Channel Scanner - Settings.cpp
- * Revision: 56
+ * Revision: 63
  *
  * User settings: the values, their limits and defaults, loading them from
  * flash at start-up and saving them, plus helpers that depend on them.
@@ -29,6 +29,8 @@ Settings cfg = {
   1,     // hdzLowBand
   1,     // hdzE1F1
   100,   // backlight
+  37,    // imdMinSep
+  0,     // imdLowBand
 };
 
 const SettingDef SETTINGS[] = {
@@ -46,6 +48,8 @@ const SettingDef SETTINGS[] = {
   { "Quietest for HDZero", "HDZero features", "hdzero",    &cfg.hdzero,        0,   1,  1,  0, 1, 0, "",     "HDZero page and blue channel outlines" },
   { "Quietest for HDZero", "Low band L1-L8",  "hdzLow",    &cfg.hdzLowBand,    0,   1,  1,  1, 1, 0, "",     "Include L1-L8 (needs low band unlocked)" },
   { "Quietest for HDZero", "E1 and F1",       "hdzE1F1",   &cfg.hdzE1F1,       0,   1,  1,  1, 1, 0, "",     "Include E1 and F1 (not on every product page)" },
+  { "IMD-Free Channels", "Min spacing",     "imdSep",    &cfg.imdMinSep,    20,  80,  1, 37, 0, 0, " MHz", "Smallest gap allowed between channels in a set" },
+  { "IMD-Free Channels", "Use L band",      "imdLow",    &cfg.imdLowBand,    0,   1,  1,  0, 1, 0, "",     "Allow L1-L8 (HDZero mode: HDZero settings)" },
   { "General", "Backlight",       "backlight", &cfg.backlight,    10, 100, 10,100, 0, 0, "%",    "LCD brightness" },
 };
 const int NUM_SETTINGS = sizeof(SETTINGS) / sizeof(SETTINGS[0]);

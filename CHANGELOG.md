@@ -2,6 +2,62 @@
 
 Revision numbers match the `Revision:` line in the source headers.
 
+## Revision 63
+- Page order: Quietest for HDZero now comes before IMD-Free Channels.
+  KEY_R: ... Noise -> Quietest -> Quietest for HDZero (HDZero mode) ->
+  IMD-Free -> Activity; KEY_L goes back the same way. The Configuration
+  pages follow the same order, and the Help page shows it.
+- IMD-Free Channels in HDZero mode: the footer reads "HDZero only: R1-8, ..."
+  so it's clear the sets use HDZero channels only.
+
+## Revision 62
+- ENTER (short) now does nothing on Quietest Channels, Quietest for HDZero
+  and IMD-Free Channels; it clears the noise history only on FPV Channel
+  Noise. Help page updated ("Noise: clear the noise history"). Holding
+  ENTER still re-learns the noise floor on every page.
+
+## Revision 61
+- Page titles in green (instead of amber) on FPV Channel Activity, Quietest
+  Channels, IMD-Free Channels and Quietest for HDZero. FPV Channel Noise
+  stays red and Spectrum stays amber.
+
+## Revision 60
+- The history clock at the bottom right of the Noise, Quietest and IMD-Free
+  pages now reads "History D:HH:MM:SS" (for example 0:01:05:09).
+- Quietest Channels, Quietest for HDZero and IMD-Free Channels: when a
+  channel changes position, its band / channel label turns red and fades
+  back to its normal amber over 3 seconds (MOVE_FADE_MS). The first fill of
+  a list and a cleared history don't count as moves.
+
+## Revision 59
+- Configuration menu hint line (bottom of every page): key names stay
+  white, each key's action ("Up", "Back", "Modify Value", ...) is green.
+
+## Revision 58
+- Help page: the action for each button (right-hand column) is shown in
+  green instead of grey.
+
+## Revision 57
+- New IMD-Free Channels page, after Quietest Channels (KEY_R order: ...
+  Quietest -> IMD-Free -> Quietest for HDZero / Activity). Four columns, for
+  3, 4, 5 and 6 pilots, each listing the channel set (band / channel only)
+  with the least intermodulation interference.
+- Scoring follows ET's IMDTabler: two transmitters on f1 and f2 make
+  products at 2*f1 - f2 and 2*f2 - f1; each product within 35 MHz of a
+  channel in the set costs (35 - distance)^2, and the score is
+  100 - total / 5 / channels (100 = clean). The score is shown under each
+  column (green 100, amber 80-99, red below 80).
+- Channels in a set are at least "Min spacing" apart (default 37 MHz).
+  Among the best-scoring sets, the one on the quietest channels in the noise
+  history wins (2 points per dB of average noise), so busy channels are
+  avoided; the sets are re-picked every 10 s.
+- HDZero mode: only channels an HDZero VTX can use, following the HDZero
+  settings (L1-L8, E1/F1). Otherwise L1-L8 only with the new "Use L band"
+  setting (default off).
+- New Configuration page "IMD-Free Channels" with "Min spacing" and
+  "Use L band". ENTER on the page clears the noise history, as on the
+  Quietest pages. Help page updated.
+
 ## Revision 56
 - Spectrum band buttons are square-cornered again (43 x 19 px, large letter)
   and spread evenly so the row lines up exactly with the left and right

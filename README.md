@@ -54,7 +54,7 @@ All in `FPV Channel Scanner/`:
 | `Page Activity.cpp` | FPV Channel Activity page and the channel sweep |
 | `Page Spectrum.cpp` | Spectrum page |
 | `Page Noise.cpp` | FPV Channel Noise page and the long-term statistics |
-| `Page Quietest.cpp` | Quietest Channels page |
+| `Page Quietest.cpp` | Quietest Channels, Quietest for HDZero and IMD-Free Channels pages |
 | `font5x7.h` | 5x7 bitmap font |
 
 To change the splash picture, replace `Splash.PNG` (320 x 320) and run
@@ -65,10 +65,10 @@ Each source file's header carries the revision number; see `CHANGELOG.md`
 for what changed in each revision.
 
 ## Screens
-Pages in KEY_R order: Activity -> Spectrum -> Noise -> Quietest -> HDZero ->
+Pages in KEY_R order: Activity -> Spectrum -> Noise -> Quietest -> HDZero -> IMD-Free ->
 Activity. KEY_L goes back: Activity -> Noise -> Spectrum -> Activity, and
-HDZero -> Quietest -> Noise. The HDZero page exists only in HDZero mode (see
-below); otherwise KEY_R from Quietest goes back to Activity. Quietest Channels is only reached with KEY_R from Channel Noise, and
+IMD-Free -> HDZero -> Quietest -> Noise. The HDZero page exists only in HDZero mode (see
+below); otherwise KEY_R from Quietest goes straight to IMD-Free. Quietest Channels is only reached with KEY_R from Channel Noise, and
 only once there are 60 s of noise history; before that a "Wait >60s"
 pop-up shows and the page stays put.
 - **FPV Channel Activity** (grid): all 48 channels; square brightness = power
@@ -100,10 +100,19 @@ pop-up shows and the page stays put.
   on the VTX ([HDZero VTX docs](https://docs.hd-zero.com/vtx-general)).
   Reached with KEY_R from Quietest Channels, in HDZero mode only.
 
+- **IMD-Free Channels**: four columns, for 3, 4, 5 and 6 pilots, each
+  listing the channel set (band / channel only) with the least
+  intermodulation (IMD) interference. Two transmitters on f1 and f2 make
+  interference at 2*f1 - f2 and 2*f2 - f1; sets are scored like ET's
+  IMDTabler (100 = no product within 35 MHz of a channel in use), and the
+  score is shown under each column. Channels are at least "Min spacing"
+  apart; among the best sets, the quietest in the noise history wins. In
+  HDZero mode only HDZero channels are used, and the footer says
+  "HDZero only".
 **HDZero mode:** turned on with the "HDZero features" setting in the
 Configuration menu. It enables the Quietest for HDZero page and the blue
-outlines, and shows a blue "HDZ" marker at the top left of the grid pages.
-The HDZero list can leave out L1-L8 and E1/F1 (settings on the same page).
+outlines, shows a blue "HDZ" marker at the top left of the grid pages, and
+limits the IMD-Free page to HDZero channels. The HDZero lists can leave out L1-L8 and E1/F1 (settings on the same page).
 
 ## Configuration
 At power-on a splash screen shows for 5 seconds while the radio starts. Press
@@ -122,6 +131,7 @@ bar, then a Save / Discard page:
 | FPV Channel Noise | Busy level (dB), shading gamma, full-red spread (dB) |
 | Quietest Channels | Minimum history before the list opens (s) |
 | Quietest for HDZero | HDZero features, low band L1-L8, E1 and F1 |
+| IMD-Free Channels | Min spacing (MHz), use L band |
 | General | Backlight (%) |
 
 - **KEY_L / KEY_R**: move up / down the list (past the end of a page goes to
@@ -137,7 +147,7 @@ bar, then a Save / Discard page:
 - **ENTER (short)** on the grid: cycle the span (15-40 dB, default 15). It sets
   the grid brightness scale and the spectrum graph height, and is remembered
   across power cycles.
-- **ENTER (short)** on Channel Noise or either Quietest page: clear the history
+- **ENTER (short)** on Channel Noise: clear the history (does nothing on the Quietest and IMD-Free pages)
   and start over.
   (Re-learning the noise floor also clears it.)
 - **ENTER (short)** on the spectrum: select the next band button.
@@ -173,7 +183,7 @@ bar, then a Save / Discard page:
 ## License
 MIT - see [LICENSE](LICENSE).
 
-## Screens
+## Screenshots
 Simulated screenshots (the firmware's own drawing code run on a PC with a
 simulated radio), in the order the software shows them: the splash, the
 Configuration menu pages, then the scanner pages in Right-button order.
@@ -193,26 +203,33 @@ Configuration menu pages, then the scanner pages in Right-button order.
 </tr>
 <tr>
 <td align="center"><img src="docs/screenshots/07%20Configuration%20-%20Quietest%20for%20HDZero.png" width="320" alt="Configuration: Quietest for HDZero"><br>Configuration: Quietest for HDZero</td>
-<td align="center"><img src="docs/screenshots/08%20Configuration%20-%20General.png" width="320" alt="Configuration: General"><br>Configuration: General</td>
+<td align="center"><img src="docs/screenshots/08%20Configuration%20-%20IMD-Free%20Channels.png" width="320" alt="Configuration: IMD-Free Channels"><br>Configuration: IMD-Free Channels</td>
 </tr>
 <tr>
-<td align="center"><img src="docs/screenshots/09%20Configuration%20-%20Save%20-%20Discard.png" width="320" alt="Configuration: Save / Discard"><br>Configuration: Save / Discard</td>
-<td align="center"><img src="docs/screenshots/10%20Configuration%20-%20editing%20a%20value.png" width="320" alt="Configuration: editing a value"><br>Configuration: editing a value</td>
+<td align="center"><img src="docs/screenshots/09%20Configuration%20-%20General.png" width="320" alt="Configuration: General"><br>Configuration: General</td>
+<td align="center"><img src="docs/screenshots/10%20Configuration%20-%20Save%20-%20Discard.png" width="320" alt="Configuration: Save / Discard"><br>Configuration: Save / Discard</td>
 </tr>
 <tr>
-<td align="center"><img src="docs/screenshots/11%20FPV%20Channel%20Activity.png" width="320" alt="FPV Channel Activity"><br>FPV Channel Activity</td>
-<td align="center"><img src="docs/screenshots/12%20FPV%20Channel%20Activity%20%28HDZero%20mode%29.png" width="320" alt="FPV Channel Activity, HDZero mode"><br>FPV Channel Activity, HDZero mode</td>
+<td align="center"><img src="docs/screenshots/11%20Configuration%20-%20editing%20a%20value.png" width="320" alt="Configuration: editing a value"><br>Configuration: editing a value</td>
+<td align="center"><img src="docs/screenshots/12%20FPV%20Channel%20Activity.png" width="320" alt="FPV Channel Activity"><br>FPV Channel Activity</td>
 </tr>
 <tr>
-<td align="center"><img src="docs/screenshots/13%20Spectrum%20%28Raceband%29.png" width="320" alt="Spectrum (Raceband) with waterfall"><br>Spectrum (Raceband) with waterfall</td>
-<td align="center"><img src="docs/screenshots/14%20FPV%20Channel%20Noise.png" width="320" alt="FPV Channel Noise"><br>FPV Channel Noise</td>
+<td align="center"><img src="docs/screenshots/13%20FPV%20Channel%20Activity%20%28HDZero%20mode%29.png" width="320" alt="FPV Channel Activity, HDZero mode"><br>FPV Channel Activity, HDZero mode</td>
+<td align="center"><img src="docs/screenshots/14%20Spectrum%20%28Raceband%29.png" width="320" alt="Spectrum (Raceband) with waterfall"><br>Spectrum (Raceband) with waterfall</td>
 </tr>
 <tr>
-<td align="center"><img src="docs/screenshots/15%20FPV%20Channel%20Noise%20%28HDZero%20mode%29.png" width="320" alt="FPV Channel Noise, HDZero mode"><br>FPV Channel Noise, HDZero mode</td>
-<td align="center"><img src="docs/screenshots/16%20FPV%20Channel%20Noise%20with%20Wait%20popup.png" width="320" alt="Wait &gt;60s pop-up (Quietest not ready)"><br>Wait &gt;60s pop-up (Quietest not ready)</td>
+<td align="center"><img src="docs/screenshots/15%20FPV%20Channel%20Noise.png" width="320" alt="FPV Channel Noise"><br>FPV Channel Noise</td>
+<td align="center"><img src="docs/screenshots/16%20FPV%20Channel%20Noise%20%28HDZero%20mode%29.png" width="320" alt="FPV Channel Noise, HDZero mode"><br>FPV Channel Noise, HDZero mode</td>
 </tr>
 <tr>
-<td align="center"><img src="docs/screenshots/17%20Quietest%20Channels.png" width="320" alt="Quietest Channels"><br>Quietest Channels</td>
-<td align="center"><img src="docs/screenshots/18%20Quietest%20for%20HDZero.png" width="320" alt="Quietest for HDZero"><br>Quietest for HDZero</td>
+<td align="center"><img src="docs/screenshots/17%20FPV%20Channel%20Noise%20with%20Wait%20popup.png" width="320" alt="Wait &gt;60s pop-up (Quietest not ready)"><br>Wait &gt;60s pop-up (Quietest not ready)</td>
+<td align="center"><img src="docs/screenshots/18%20Quietest%20Channels.png" width="320" alt="Quietest Channels"><br>Quietest Channels</td>
+</tr>
+<tr>
+<td align="center"><img src="docs/screenshots/19%20Quietest%20for%20HDZero.png" width="320" alt="Quietest for HDZero"><br>Quietest for HDZero</td>
+<td align="center"><img src="docs/screenshots/20%20IMD-Free%20Channels.png" width="320" alt="IMD-Free Channels"><br>IMD-Free Channels</td>
+</tr>
+<tr>
+<td align="center"><img src="docs/screenshots/21%20IMD-Free%20Channels%20%28HDZero%20mode%29.png" width="320" alt="IMD-Free Channels, HDZero mode"><br>IMD-Free Channels, HDZero mode</td>
 </tr>
 </table>

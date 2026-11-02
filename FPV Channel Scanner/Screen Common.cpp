@@ -1,6 +1,6 @@
 /*
  * FPV Channel Scanner - Screen Common.cpp
- * Revision: 56
+ * Revision: 63
  *
  * Drawing shared by several pages (grid frame, Scanning dots, span /
  * history label, learning progress, title status), the pop-up, and
@@ -48,11 +48,11 @@ void drawScanning(int y) {
 
 // "SPAN nndB" at the bottom right; same screen position on both pages.
 void drawSpanLabel() {
-  char s[20];
+  char s[64];
   if (mode == MODE_ACTIVITY || quietPage()) {
-    uint32_t t = (uint32_t)actTrackedS;    // fixed width so no leftovers when it changes
-    if (t < 3600) snprintf(s, sizeof(s), "History %2lum%02lus", (unsigned long)(t / 60), (unsigned long)(t % 60));
-    else          snprintf(s, sizeof(s), "History %2luh%02lum", (unsigned long)(t / 3600), (unsigned long)(t / 60 % 60));
+    // D:HH:MM:SS; fixed width (up to 9 days) so no leftovers when it changes
+    unsigned long t = (unsigned long)actTrackedS;
+    snprintf(s, sizeof(s), "History %lu:%02lu:%02lu:%02lu", t / 86400, t / 3600 % 24, t / 60 % 60, t % 60);
   }
   else snprintf(s, sizeof(s), "Span %d dB", cfg.span);
   lcdText(LCD_W - 6 * (int)strlen(s) - 4, FOOT_Y + 20, s, 1, C_DIM, C_BG);
@@ -102,14 +102,16 @@ ScreenMode pageAfter(ScreenMode m, int dir) {
       case MODE_GRID:     return MODE_SPECTRUM;
       case MODE_SPECTRUM: return MODE_ACTIVITY;
       case MODE_ACTIVITY: return MODE_QUIET;
-      case MODE_QUIET:    return cfg.hdzero ? MODE_HDZERO : MODE_GRID;
-      default:            return MODE_GRID;       // from Quietest for HDZero
+      case MODE_QUIET:    return cfg.hdzero ? MODE_HDZERO : MODE_IMD;
+      case MODE_HDZERO:   return MODE_IMD;
+      default:            return MODE_GRID;       // from IMD-Free
     }
   }
   switch (m) {
     case MODE_GRID:     return MODE_ACTIVITY;     // skips both quietest lists
     case MODE_SPECTRUM: return MODE_GRID;
     case MODE_ACTIVITY: return MODE_SPECTRUM;
+    case MODE_IMD:      return cfg.hdzero ? MODE_HDZERO : MODE_QUIET;
     case MODE_HDZERO:   return MODE_QUIET;
     default:            return MODE_ACTIVITY;     // from Quietest
   }

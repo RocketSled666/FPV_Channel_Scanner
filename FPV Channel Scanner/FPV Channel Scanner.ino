@@ -1,6 +1,6 @@
 /*
  * FPV Channel Scanner
- * Revision: 56
+ * Revision: 63
  * Board : Waveshare ESP32-C5-LCD-2.73 (ESP32-C5, ILI9488 320x320 SPI LCD)
  * Core  : Arduino-ESP32 3.3.x  (Tools > Board > "ESP32C5 Dev Module")
  *
@@ -17,7 +17,7 @@
  * found by disassembling Espressif's libphy.a for the ESP32-C5. They may
  * change between core versions. Readings are relative, not calibrated dBm.
  *
- * Four pages, plus a fifth in HDZero mode, in KEY_R order:
+ * Five pages, plus a sixth in HDZero mode, in KEY_R order:
  *   FPV CHANNEL ACTIVITY (grid) - all 48 FPV channels, square brightness =
  *               power above floor right now
  *   SPECTRUM  - continuous sweep across one band in 4 MHz steps, with the
@@ -37,6 +37,14 @@
  *               can use: R1-R8, E1, F1, F2, F4 and L1-L8 (low band unlocked).
  *               Reached only by KEY_R from Quietest Channels, and only in
  *               HDZero mode.
+ *   IMD-FREE CHANNELS - for 3, 4, 5 and 6 pilots, the channel set (band /
+ *               channel only) with the least intermodulation interference:
+ *               two VTXs on f1, f2 make interference at 2*f1-f2 and 2*f2-f1,
+ *               scored like ET's IMDTabler (100 = clean). Channels are at
+ *               least "Min spacing" apart; among the best sets the quietest
+ *               (noise history) wins. HDZero mode: HDZero channels only,
+ *               and "HDZero only" in the footer. Reached by KEY_R from
+ *               Quietest for HDZero (HDZero mode) or Quietest Channels.
  *
  * Start-up: a splash screen (Splash.PNG) shows for 5 s with a blue hint,
  *   "Press forward+backward buttons now for Settings screen, or hold for
@@ -58,19 +66,21 @@
  *   HDZero mode (the "HDZero features" setting) adds the Quietest for
  *   HDZero page, a blue outline on HDZero-usable channels on both grid
  *   pages (inside the white highlight when a box has both), and a blue
- *   "HDZ" marker at the top left of the grids. Without it, KEY_R from
- *   Quietest Channels goes back to Activity.
+ *   "HDZ" marker at the top left of the grids, and limits the IMD-Free page
+ *   to HDZero channels. Without it, KEY_R from Quietest goes to IMD-Free.
  *
- *   KEY_R: Activity -> Spectrum -> Noise -> Quietest -> HDZero -> Activity
+ *   KEY_R: Activity -> Spectrum -> Noise -> Quietest -> HDZero -> IMD-Free
+ *          -> Activity
  *   KEY_L: Activity -> Noise -> Spectrum -> Activity;
- *          HDZero -> Quietest -> Noise
+ *          IMD-Free -> HDZero -> Quietest -> Noise
  *
  * Buttons:
  *   KEY_L / KEY_R (GPIO2 / GPIO3) = previous / next page (order above),
  *                                   on release
  *   KEY_L + KEY_R held 5 s    = open the Configuration menu from any page
  *   ENTER (short) on GRID     = cycle the span (dB); saved across power cycles
- *   ENTER (short) on NOISE or either QUIETEST page = clear the noise history
+ *   ENTER (short) on NOISE    = clear the noise history (does nothing on
+ *                             the Quietest and IMD-Free pages)
  *   ENTER (short) on SPECTRUM = select the next band button above the graph
  *   ENTER (hold 0.7 s)        = re-learn the noise floor (do it with VTXs off)
  *
@@ -130,6 +140,17 @@
  *       band green, others greyed out
  *   56  Band buttons square again, spread to line up with the graph box
  *       edges (6 x 43 px, 6 px gaps)
+ *   57  IMD-Free Channels page after Quietest Channels: best channel sets
+ *       for 3-6 pilots; settings "Min spacing" and "Use L band"
+ *   58  Help page: each button's action shown in green
+ *   59  Configuration hint line: each key's action shown in green
+ *   60  History clock as D:HH:MM:SS; on the Quietest and IMD-Free pages a
+ *       channel that changes position shows red, fading back over 3 s
+ *   61  Green page titles on FPV Channel Activity, Quietest Channels,
+ *       IMD-Free Channels and Quietest for HDZero
+ *   62  ENTER (short) does nothing on the Quietest and IMD-Free pages
+ *   63  Quietest for HDZero now comes before IMD-Free; IMD-Free footer says
+ *       "HDZero only" in HDZero mode
  */
 
 #include "Scanner.h"
@@ -209,6 +230,7 @@ void loop() {
       enterMode(next);
       Serial.printf("page -> %s\n", mode == MODE_GRID ? "channel activity" : mode == MODE_ACTIVITY ? "channel noise" :
                                 mode == MODE_QUIET ? "quietest channels" :
+                                mode == MODE_IMD ? "IMD-free channels" :
                                 mode == MODE_HDZERO ? "quietest for HDZero" : "spectrum");
     }
   }
@@ -232,8 +254,7 @@ void loop() {
       gridInvalidate(); gridFooterDirty = true;
     } else if (mode == MODE_ACTIVITY) {     // restart the activity sums
       actClear(); actInvalidate(); actFooterDirty = true;
-    } else if (quietPage()) {               // same history as the noise page
-      actClear(); quietInvalidate(); quietFooterDirty = true;
+    } else if (quietPage()) {               // Quietest / IMD-Free pages: ENTER does nothing
     } else {                                // next band button
       specSetBand(nextBandInButtonOrder(specBand));
       specDrawStatic();

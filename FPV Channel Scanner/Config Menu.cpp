@@ -1,6 +1,6 @@
 /*
  * FPV Channel Scanner - Config Menu.cpp
- * Revision: 56
+ * Revision: 63
  *
  * Configuration menu, opened by holding KEY_L + KEY_R for CONFIG_HOLD_MS on
  * any page.
@@ -163,15 +163,16 @@ static void drawMenuFooter(int item, bool editing) {
   int leftEnd = 4 + 6 * (int)strlen(hl);
   int xe = LCD_W - 4 - 6 * (int)strlen(he);
   int xr = (leftEnd + xe - 6 * (int)strlen(hr)) / 2;           // centred in the gap
-  lcdText(4, MENU_HINT_Y, hl, 1, C_TEXT, C_BG);
-  lcdText(xr, MENU_HINT_Y, hr, 1, C_TEXT, C_BG);
-  lcdText(xe, MENU_HINT_Y, he, 1, C_TEXT, C_BG);
+  // key name in white, its action in green
+  lcdText(4,  MENU_HINT_Y, "Left:", 1, C_TEXT, C_BG);   lcdText(4 + 36,  MENU_HINT_Y, l, 1, C_GOOD, C_BG);
+  lcdText(xr, MENU_HINT_Y, "Right:", 1, C_TEXT, C_BG);  lcdText(xr + 42, MENU_HINT_Y, r, 1, C_GOOD, C_BG);
+  lcdText(xe, MENU_HINT_Y, "ENTER:", 1, C_TEXT, C_BG);  lcdText(xe + 42, MENU_HINT_Y, e, 1, C_GOOD, C_BG);
   lcdText(4, MENU_HINT_Y + 14, "Changes apply after Save and restart", 1, C_DIM, C_BG);
 }
 
 // Help page: what every button does, screen by screen (as in the .ino header).
 // Headings in yellow; each line has the button(s) on the left, in white, and
-// what they do on the right, in grey.
+// what they do on the right, in green.
 #define HELP_Y0     58
 #define HELP_PITCH  11
 #define HELP_COL2   118     // x of the description column (one space after 16 characters)
@@ -183,7 +184,7 @@ static void helpHeading(int &y, const char *s) {
 }
 static void helpLine(int &y, const char *keys, const char *what) {
   lcdText(10, y, keys, 1, C_TEXT, C_BG);
-  lcdText(HELP_COL2, y, what, 1, C_DIM, C_BG);
+  lcdText(HELP_COL2, y, what, 1, C_GOOD, C_BG);                // the action, in green
   y += HELP_PITCH;
 }
 
@@ -197,11 +198,11 @@ static void drawHelpPage() {
   helpHeading(y, "ENTER (short press)");
   helpLine(y, "Activity:",        "cycle the span (dB), saved");
   helpLine(y, "Spectrum:",        "select the next band");
-  helpLine(y, "Noise / Quietest:", "clear the noise history");
+  helpLine(y, "Noise:",           "clear the noise history");
   helpHeading(y, "Page order");
-  lcdText(10, y, cfg.hdzero ? "Right: Activity > Spectrum > Noise > Quietest > HDZ"
-                            : "Right: Activity > Spectrum > Noise > Quietest",
-          1, C_TEXT, C_BG);
+  lcdText(10, y, "Right: Activity > Spectrum > Noise > Quietest", 1, C_TEXT, C_BG);
+  y += HELP_PITCH;
+  lcdText(10, y, cfg.hdzero ? "       > Quietest for HDZero > IMD-free" : "       > IMD-free", 1, C_TEXT, C_BG);
   y += HELP_PITCH;
   lcdText(10, y, "Left:  goes back the same way", 1, C_TEXT, C_BG);
   y += HELP_PITCH;

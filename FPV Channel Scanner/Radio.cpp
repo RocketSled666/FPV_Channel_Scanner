@@ -1,6 +1,6 @@
 /*
  * FPV Channel Scanner - Radio.cpp
- * Revision: 56
+ * Revision: 63
  *
  * 5 GHz measurement: tuning with the internal phy_set_chanfreq(), reading
  * the baseband noise-floor estimator, the RSSI fallback when it stalls,

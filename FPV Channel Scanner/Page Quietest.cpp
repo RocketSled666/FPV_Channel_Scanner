@@ -1,28 +1,271 @@
 /*
  * FPV Channel Scanner - Page Quietest.cpp
- * Revision: 56
+ * Revision: 63
  *
  * Quietest Channels and Quietest for HDZero pages: the QUIET_LIST_N
  * quietest channels from the Channel Noise history, in two columns of 8:
  * left column 1-8, right column 9-16. The HDZero page lists only channels
  * an HDZero VTX can use (hdzeroOk() in Settings.cpp). Measurement keeps running
  * on these pages, so the history and the lists stay live.
+ *
+ * IMD-Free Channels page: for 3, 4, 5 and 6 pilots, the set of channels with
+ * the least intermodulation (IMD) interference, one column each, by band and
+ * channel only. Two transmitters on f1 and f2 make interference at 2*f1 - f2
+ * and 2*f2 - f1; a set is scored like ET's IMDTabler: every such product
+ * within IMD_NEAR_MHZ of a channel in the set costs (35 - distance)^2, and
+ * the score is 100 - total / 5 / channels (100 = clean). Channels in a set
+ * are at least cfg.imdMinSep MHz apart. Among the best-scoring sets, the one
+ * on the quietest channels (noise history) wins, so a busy channel is
+ * avoided. In HDZero mode only channels an HDZero VTX can use are picked.
  */
 
 #include "Scanner.h"
 
-// True on either quietest-list page.
+// True on either quietest-list page or the IMD-free page (all three use the
+// noise history and are drawn from the grid sweep).
 bool quietPage() {
-  return mode == MODE_QUIET || mode == MODE_HDZERO;
+  return mode == MODE_QUIET || mode == MODE_HDZERO || mode == MODE_IMD;
 }
 
+// ---------------------------------------------------------------- moved-channel fade
+// A channel that has just changed position is drawn red, fading back to its
+// normal color over MOVE_FADE_MS. moveMs = when it moved, 0 = not fading.
+static RGB moveColor(uint32_t moveMs, RGB normal) {
+  if (!moveMs) return normal;
+  uint32_t age = millis() - moveMs;
+  if (age >= MOVE_FADE_MS) return normal;
+  float k = age / (float)MOVE_FADE_MS;                 // 0 = just moved (red) .. 1 = normal
+  return RGB{ (uint8_t)lroundf(C_RED.r + (normal.r - C_RED.r) * k),
+              (uint8_t)lroundf(C_RED.g + (normal.g - C_RED.g) * k),
+              (uint8_t)lroundf(C_RED.b + (normal.b - C_RED.b) * k) };
+}
+static uint32_t nowNonZero() { uint32_t t = millis(); return t ? t : 1; }
+
+// ---------------------------------------------------------------- IMD-free sets
+static int      imdNCand = 0;
+static int16_t  imdCandIdx[NUM_BANDS * NUM_CH];   // band*NUM_CH + channel, sorted by frequency
+static uint16_t imdCandMhz[NUM_BANDS * NUM_CH];
+static float    imdCandNoise[NUM_BANDS * NUM_CH]; // average dB above floor (0 without history)
+
+static int16_t  imdSet[IMD_COLS][IMD_MAX_N];      // chosen candidates' idx, -1 = none
+static int      imdScore[IMD_COLS];               // IMD score of each set, -999 = no set
+static int16_t  imdShownSet[IMD_COLS][IMD_MAX_N];
+static int      imdShownScore[IMD_COLS];
+static uint32_t imdComputedMs = 0;
+static uint32_t imdMoveMs[IMD_COLS][IMD_MAX_N];   // moved-channel fade start per cell
+static bool     imdDirty = true;                  // recompute before the next draw
+
+// Candidate channels: one per frequency (F8 and R7 are both 5880 MHz, for
+// example). The name used for a shared frequency follows R, F, E, A, B, L.
+static void imdBuildCandidates(bool useNoise) {
+  static const int PREF[NUM_BANDS] = { 4, 3, 2, 0, 1, 5 };   // R F E A B L
+  imdNCand = 0;
+  for (int p = 0; p < NUM_BANDS; p++) {
+    int b = PREF[p];
+    for (int c = 0; c < NUM_CH; c++) {
+      if (cfg.hdzero) { if (!hdzeroOk(b, c)) continue; }
+      else if (BAND_NAME[b] == 'L' && !cfg.imdLowBand) continue;
+      uint16_t f = FPV_MHZ[b][c];
+      bool dup = false;
+      for (int i = 0; i < imdNCand; i++) if (imdCandMhz[i] == f) { dup = true; break; }
+      if (dup) continue;
+      // insert sorted by frequency
+      int j = imdNCand++;
+      while (j > 0 && imdCandMhz[j - 1] > f) {
+        imdCandMhz[j] = imdCandMhz[j - 1]; imdCandIdx[j] = imdCandIdx[j - 1]; imdCandNoise[j] = imdCandNoise[j - 1]; j--;
+      }
+      imdCandMhz[j] = f; imdCandIdx[j] = b * NUM_CH + c;
+      float a = useNoise ? actAvg(b, c) : 0;
+      imdCandNoise[j] = a > 0 ? a : 0;
+    }
+  }
+}
+
+// IMDTabler penalty total for k frequencies: every 2*f[r] - f[c] product
+// (5100-6099 MHz) closer than IMD_NEAR_MHZ to a frequency in the set adds
+// (IMD_NEAR_MHZ - distance)^2. Adding channels never lowers it.
+static int imdPenalty(const uint16_t *f, int k) {
+  int tot = 0;
+  for (int r = 0; r < k; r++)
+    for (int c = 0; c < k; c++) {
+      if (r == c) continue;
+      int p = 2 * (int)f[r] - (int)f[c];
+      if (p < 5100 || p > 6099) continue;
+      int d = 100000;
+      for (int x = 0; x < k; x++) { int e = abs(p - (int)f[x]); if (e < d) d = e; }
+      if (d < IMD_NEAR_MHZ) tot += (IMD_NEAR_MHZ - d) * (IMD_NEAR_MHZ - d);
+    }
+  return tot;
+}
+
+static int imdRatingFrom(int penalty, int n) { return 100 - penalty / 5 / n; }
+
+// Depth-first search over candidates (in frequency order, at least
+// cfg.imdMinSep apart). Ranking: IMD score, minus 2 points per dB of average
+// noise on the chosen channels, plus a tiny bonus for a wider smallest gap.
+// A branch is dropped as soon as it can't beat the best set found so far.
+struct ImdSearch {
+  int n;
+  int pick[IMD_MAX_N];
+  uint16_t f[IMD_MAX_N];
+  float bestValue;
+  int bestPick[IMD_MAX_N];
+  int bestRating;
+  uint32_t nodes;
+};
+
+static void imdSearch(ImdSearch &S, int k, int start, float noise, int minGap) {
+  if (++S.nodes % 512 == 0) pollInput();            // keep the buttons responsive
+  if (k >= 3) {
+    // Score, noise and smallest gap can only get worse as channels are
+    // added, so this is the best any set on this branch can reach.
+    int rating = imdRatingFrom(imdPenalty(S.f, k), S.n);
+    float value = rating - 2.0f * noise + minGap * 0.001f;
+    if (value <= S.bestValue) return;
+    if (k == S.n) {
+      {
+        S.bestValue = value; S.bestRating = rating;
+        for (int i = 0; i < S.n; i++) S.bestPick[i] = S.pick[i];
+      }
+      return;
+    }
+  }
+  for (int i = start; i <= imdNCand - (S.n - k); i++) {
+    int gap = k ? imdCandMhz[i] - S.f[k - 1] : 100000;
+    if (gap < cfg.imdMinSep) continue;
+    S.pick[k] = i; S.f[k] = imdCandMhz[i];
+    imdSearch(S, k + 1, i + 1, noise + imdCandNoise[i], gap < minGap ? gap : minGap);
+  }
+}
+
+static void imdCompute() {
+  bool useNoise = actLastMs != 0;
+  imdBuildCandidates(useNoise);
+  uint32_t t0 = millis(), nodes = 0;
+  for (int col = 0; col < IMD_COLS; col++) {
+    ImdSearch S;
+    S.n = IMD_MIN_N + col; S.bestValue = -1e9f; S.bestRating = -999; S.nodes = 0;
+    if (S.n <= imdNCand) imdSearch(S, 0, 0, 0, 100000);
+    nodes += S.nodes;
+    imdScore[col] = S.bestRating;
+    for (int i = 0; i < IMD_MAX_N; i++)
+      imdSet[col][i] = (S.bestRating > -999 && i < S.n) ? imdCandIdx[S.bestPick[i]] : -1;
+  }
+  imdComputedMs = millis(); imdDirty = false;
+  if (serialHasRoom(200))
+    Serial.printf("imd: %d candidates, %lu nodes, %lu ms\n", imdNCand, (unsigned long)nodes,
+                  (unsigned long)(imdComputedMs - t0));
+}
+
+static void imdInvalidate() {
+  for (int col = 0; col < IMD_COLS; col++) {
+    imdShownScore[col] = -1000;
+    for (int i = 0; i < IMD_MAX_N; i++) { imdShownSet[col][i] = -2; imdMoveMs[col][i] = 0; }
+  }
+  imdDirty = true;
+}
+
+static void imdDrawStatic() {
+  lcdFill(0, 0, LCD_W, LCD_H, 0, 0, 0);
+  lcdText(4, 4, "IMD-Free Channels", 2, C_GOOD, C_BG);     // green title
+  for (int col = 0; col < IMD_COLS; col++) {
+    char t[12];
+    snprintf(t, sizeof(t), "%d pilots", IMD_MIN_N + col);
+    int x = col * IMD_COL_W;
+    lcdText(x + (IMD_COL_W - 6 * (int)strlen(t)) / 2, IMD_HEAD_Y, t, 1, C_TEXT, C_BG);
+    if (col) lcdFillC(x, IMD_HEAD_Y - 4, 1, IMD_SCORE_Y + 12 - (IMD_HEAD_Y - 4), C_MARK);   // divider
+  }
+  lcdFillC(0, IMD_Y0 - 5, LCD_W, 1, C_MARK);
+  imdInvalidate();
+  quietFooterDirty = true;
+  learnShownPct = -1; scanAnimY = -1;
+}
+
+// Redraw one column if its set or score changed, or a moved channel in it is
+// still fading. A row whose channel changed (not the first fill) starts red.
+static void imdDrawColumn(int col) {
+  bool same = imdScore[col] == imdShownScore[col], fading = false;
+  for (int i = 0; i < IMD_MAX_N; i++) {
+    int now = imdSet[col][i], was = imdShownSet[col][i];
+    if (now != was) {
+      same = false;
+      if (now >= 0 && was >= 0) imdMoveMs[col][i] = nowNonZero();   // moved
+      else imdMoveMs[col][i] = 0;
+    }
+    if (imdMoveMs[col][i]) {
+      fading = true;                                  // redraw until the fade ends
+      if (millis() - imdMoveMs[col][i] >= MOVE_FADE_MS) imdMoveMs[col][i] = 0;
+    }
+  }
+  if (same && !fading) return;
+  int x = col * IMD_COL_W + 1;
+  for (int i = 0; i < IMD_MAX_N; i++) {
+    int idx = imdSet[col][i];
+    int y = IMD_Y0 + i * IMD_PITCH;
+    if (idx != imdShownSet[col][i] || imdMoveMs[col][i] || fading)
+      lcdFill(x, y, IMD_COL_W - 1, 24, 0, 0, 0);
+    imdShownSet[col][i] = idx;
+    if (idx < 0) continue;
+    char t[4];
+    snprintf(t, sizeof(t), "%c%d", BAND_NAME[idx / NUM_CH], idx % NUM_CH + 1);
+    lcdText(x + (IMD_COL_W - 1 - 18 * (int)strlen(t)) / 2, y, t, 3, moveColor(imdMoveMs[col][i], C_ACC), C_BG);
+  }
+  if (imdScore[col] == imdShownScore[col]) return;
+  lcdFill(x, IMD_SCORE_Y, IMD_COL_W - 1, 8, 0, 0, 0);
+  imdShownScore[col] = imdScore[col];
+  char t[20];
+  if (imdScore[col] <= -999) snprintf(t, sizeof(t), "no set");
+  else                       snprintf(t, sizeof(t), "IMD %d", imdScore[col]);
+  RGB c = imdScore[col] >= 100 ? C_GOOD : imdScore[col] >= 80 ? C_ACC : C_RED;
+  lcdText(x + (IMD_COL_W - 1 - 6 * (int)strlen(t)) / 2, IMD_SCORE_Y, t, 1, c, C_BG);
+}
+
+static void imdDraw(bool learning, uint32_t learnStart) {
+  static bool lastLearning = false, lastNoise = false;
+  bool noise = actLastMs != 0;
+  if (imdDirty || noise != lastNoise || millis() - imdComputedMs >= IMD_REFRESH_MS) {
+    imdCompute();
+    if (noise != lastNoise) quietFooterDirty = true;
+    lastNoise = noise;
+  }
+  for (int col = 0; col < IMD_COLS; col++) imdDrawColumn(col);
+
+  if (learning) {
+    drawLearnProgress(FOOT_Y, (gridSweeps - learnStart) * 100 / GRID_LEARN_SWEEPS);
+  } else if (lastLearning) {
+    quietFooterDirty = true;
+  }
+  lastLearning = learning;
+  if (!learning && quietFooterDirty) {
+    learnShownPct = -1; scanAnimY = -1;
+    lcdFill(0, FOOT_Y, LCD_W, LCD_H - FOOT_Y, 0, 0, 0);
+    char t[64];
+    if (cfg.hdzero) {                                      // "HDZero only: R1-8, ..."
+      char h[48];
+      hdzeroChannelsText(h, sizeof(h));
+      snprintf(t, sizeof(t), "HDZero only:%s", h + 7);     // after "HDZero:"
+    }
+    else snprintf(t, sizeof(t), "Min spacing %d MHz%s", cfg.imdMinSep, cfg.imdLowBand ? ", L band on" : "");
+    lcdText(4, FOOT_Y + 6, t, 1, C_DIM, C_BG);
+    lcdText(4, FOOT_Y + 20, noise ? "Quietest sets first" : "IMD only (no history)", 1, C_DIM, C_BG);
+    drawSpanLabel();
+    quietFooterDirty = false;
+  }
+}
+
+// ---------------------------------------------------------------- quietest lists
+static uint32_t quietMoveMs[QUIET_LIST_N];   // moved-channel fade start per slot
+
 void quietInvalidate() {
+  imdInvalidate();
+  for (int i = 0; i < QUIET_LIST_N; i++) quietMoveMs[i] = 0;
   for (int i = 0; i < QUIET_LIST_N; i++) { quietShownIdx[i] = -2; quietShownTenths[i] = -1; quietShownBusy[i] = -1; }
 }
 
 void quietDrawStatic() {
+  if (mode == MODE_IMD) { imdDrawStatic(); return; }
   lcdFill(0, 0, LCD_W, LCD_H, 0, 0, 0);
-  lcdText(4, 4, mode == MODE_HDZERO ? "Quietest for HDZero" : "Quietest Channels", 2, C_ACC, C_BG);
+  lcdText(4, 4, mode == MODE_HDZERO ? "Quietest for HDZero" : "Quietest Channels", 2, C_GOOD, C_BG);   // green title
   lcdFillC(QUIET_COL_W, QUIET_Y0 - 2, 1, 8 * QUIET_PITCH, C_MARK);   // column divider
   quietInvalidate();
   quietFooterDirty = true;
@@ -40,7 +283,7 @@ void quietDrawEntry(int slot, int idx) {
   snprintf(t, sizeof(t), "%2d", slot + 1);
   lcdText(x, y, t, 2, C_RANK, C_BG);                       // position in the list
   snprintf(t, sizeof(t), "%c%d", BAND_NAME[b], c + 1);
-  lcdText(x + 30, y, t, 2, C_ACC, C_BG);                   // band / channel
+  lcdText(x + 30, y, t, 2, moveColor(quietMoveMs[slot], C_ACC), C_BG);   // band / channel (red when just moved)
   snprintf(t, sizeof(t), "%u", FPV_MHZ[b][c]);
   lcdText(x + 62, y, t, 2, C_TEXT, C_BG);                  // frequency
   snprintf(t, sizeof(t), "%.1f dB, %d%% busy", actAvg(b, c), actBusyPct(b, c));
@@ -48,6 +291,7 @@ void quietDrawEntry(int slot, int idx) {
 }
 
 void quietDraw(bool learning, uint32_t learnStart) {
+  if (mode == MODE_IMD) { imdDraw(learning, learnStart); return; }
   static bool lastLearning = false;
   bool ready = !learning && actLastMs != 0;
   int order[NUM_BANDS * NUM_CH];
@@ -66,7 +310,11 @@ void quietDraw(bool learning, uint32_t learnStart) {
       tenths = (int)lroundf(actAvg(idx / NUM_CH, idx % NUM_CH) * 10);
       busy = actBusyPct(idx / NUM_CH, idx % NUM_CH);
     }
-    if (idx != quietShownIdx[i] || tenths != quietShownTenths[i] || busy != quietShownBusy[i]) {
+    // A different channel in this slot (not the first fill) = it moved.
+    if (idx != quietShownIdx[i] && idx >= 0 && quietShownIdx[i] >= 0) quietMoveMs[i] = nowNonZero();
+    bool fading = quietMoveMs[i] != 0;
+    if (fading && millis() - quietMoveMs[i] >= MOVE_FADE_MS) quietMoveMs[i] = 0;   // last, normal-colour redraw
+    if (fading || idx != quietShownIdx[i] || tenths != quietShownTenths[i] || busy != quietShownBusy[i]) {
       quietDrawEntry(i, idx);
       quietShownIdx[i] = idx; quietShownTenths[i] = tenths; quietShownBusy[i] = busy;
     }
