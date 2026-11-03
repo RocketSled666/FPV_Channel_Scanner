@@ -1,6 +1,6 @@
 /*
  * FPV Channel Scanner
- * Revision: 71
+ * Revision: 74
  * Board : Waveshare ESP32-C5-LCD-2.73 (ESP32-C5, ILI9488 320x320 SPI LCD)
  * Core  : Arduino-ESP32 3.3.x  (Tools > Board > "ESP32C5 Dev Module")
  *
@@ -69,9 +69,9 @@
  *   in flash. See Settings.cpp for the list.
  *
  *   HDZero mode (the "HDZero features" setting) adds the Quietest for
- *   HDZero page, a blue outline on HDZero-usable channels on both grid
- *   pages (inside the white highlight when a box has both), and a blue
- *   "HDZ" marker at the top left of the grids, and limits the IMD-Free page
+ *   HDZero page, draws only HDZero-usable channels on both grid pages
+ *   (the rest are left blank), shows a blue "HDZ" marker at the top left
+ *   of the grids, and limits the IMD-Free page
  *   to HDZero channels. In HDZero mode, Quietest for HDZero replaces
  *   Quietest Channels (the normal list isn't shown).
  *
@@ -88,6 +88,7 @@
  *   ENTER (short) on NOISE    = clear the noise history (does nothing on
  *                             the Quietest and IMD-Free pages)
  *   ENTER (short) on SPECTRUM = select the next band button above the graph
+ *                             (HDZero mode: bands HDZero can't use are skipped)
  *   ENTER (hold 0.7 s)        = re-learn the noise floor (do it with VTXs off)
  *
  * Arduino IDE note: only setup() and loop() live in this .ino, so the IDE's
@@ -170,6 +171,12 @@
  *       and in each IMD-free set
  *   71  L Band Limit range 1-8 (0 removed: "Use L band" / "Low band L1-L8"
  *       already turn L band off)
+ *   72  HDZero mode: the Activity and Noise grids leave channels HDZero can't
+ *       tune blank (no box, no letter for an empty band); Noise shading,
+ *       ranks and quietest use only the drawn channels
+ *   73  Blue HDZero outlines removed from the grid boxes
+ *   74  HDZero mode: spectrum band buttons without an HDZero channel are
+ *       darker grey and skipped by ENTER
  */
 
 #include "Scanner.h"

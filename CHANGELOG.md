@@ -2,6 +2,26 @@
 
 Revision numbers match the `Revision:` line in the source headers.
 
+## Revision 74
+- HDZero mode, Spectrum page: band buttons for bands with no HDZero channel
+  (A and B, plus L when "Low band L1-L8" is off and E when "E1 and F1" is
+  off) are drawn in a darker grey and ENTER skips them. If the spectrum was
+  on such a band, it moves to the next enabled one.
+
+## Revision 73
+- The blue HDZero outline is no longer drawn around grid boxes. In HDZero
+  mode the grids already show only HDZero channels, so it added nothing.
+  The white highlight (strongest / quietest channel) is unchanged.
+
+## Revision 72
+- HDZero mode, FPV Channel Activity and FPV Channel Noise grids: channels an
+  HDZero VTX can't tune (following the HDZero settings for L1-L8 and E1/F1)
+  are left blank, and a band with no usable channels (A, B) loses its
+  letter too. On Activity the strongest-signal highlight and footer only
+  consider drawn channels; on Noise the black-to-red shading, the rank
+  numbers (1 = quietest drawn channel) and the outlined quietest channel do
+  too. Measurement still covers all 48 channels.
+
 ## Revision 71
 - L Band Limit now ranges 1-8; 0 is gone, since turning L band off is what
   "Use L band" (IMD-Free) and "Low band L1-L8" (HDZero) are for. A saved 0

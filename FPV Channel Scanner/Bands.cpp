@@ -1,6 +1,6 @@
 /*
  * FPV Channel Scanner - Bands.cpp
- * Revision: 71
+ * Revision: 74
  *
  * Band display order (by lowest frequency), shared by the grid rows and
  * the spectrum band buttons.
@@ -24,9 +24,14 @@ void buildButtonOrder() {
   for (int i = 0; i < NUM_BANDS; i++) bandRow[btnOrder[i]] = i;
 }
 
-// Band of the button to the right of the current one (wraps around).
+// Band of the next enabled button to the right of the current one (wraps
+// around); disabled bands (HDZero mode) are skipped.
 int nextBandInButtonOrder(int band) {
-  for (int i = 0; i < NUM_BANDS; i++)
-    if (btnOrder[i] == band) return btnOrder[(i + 1) % NUM_BANDS];
-  return btnOrder[0];
+  int pos = 0;
+  for (int i = 0; i < NUM_BANDS; i++) if (btnOrder[i] == band) pos = i;
+  for (int k = 1; k <= NUM_BANDS; k++) {
+    int b = btnOrder[(pos + k) % NUM_BANDS];
+    if (bandEnabled(b)) return b;
+  }
+  return band;
 }

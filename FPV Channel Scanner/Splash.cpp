@@ -1,6 +1,6 @@
 /*
  * FPV Channel Scanner - Splash.cpp
- * Revision: 71
+ * Revision: 74
  *
  * Start-up splash screen: the picture from Splash.PNG (stored in
  * "Splash Image.h", made by tools/Make Splash Header.py), with a blue hint

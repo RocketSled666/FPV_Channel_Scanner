@@ -1,6 +1,6 @@
 /*
  * FPV Channel Scanner - Page Spectrum.cpp
- * Revision: 71
+ * Revision: 74
  *
  * Spectrum page: continuous sweep across one band in SPEC_STEP_MHZ
  * steps, with channel markers, values and band buttons. The sweep point
@@ -65,6 +65,7 @@ int freqToCol(float mhz) {
 }
 
 void specSetBand(int band) {
+  if (!bandEnabled(band)) band = nextBandInButtonOrder(band);   // HDZero mode: never a disabled band
   specBand = band;
   uint16_t lo = 65535, hi = 0;
   for (int c = 0; c < NUM_CH; c++) { lo = min(lo, FPV_MHZ[band][c]); hi = max(hi, FPV_MHZ[band][c]); }
@@ -116,9 +117,12 @@ void specDrawButtons() {
     int b = btnOrder[i];
     int x = x0 + i * (BTN_W + BTN_GAP);
     bool sel = b == specBand;
-    RGB edge = sel ? C_BTN_SEL : RGB{ 70, 70, 70 };
-    RGB fill = sel ? C_BTN_SEL : RGB{ 20, 20, 20 };
-    RGB text = sel ? RGB{ 0, 0, 0 } : RGB{ 130, 130, 130 };
+    // selected: solid green, black letter; others greyed out; disabled
+    // (HDZero mode, no HDZero channel in the band) greyed out more darkly
+    bool off = !bandEnabled(b);
+    RGB edge = sel ? C_BTN_SEL : off ? RGB{ 35, 35, 35 } : RGB{ 70, 70, 70 };
+    RGB fill = sel ? C_BTN_SEL : off ? RGB{ 10, 10, 10 } : RGB{ 20, 20, 20 };
+    RGB text = sel ? RGB{ 0, 0, 0 } : off ? RGB{ 50, 50, 50 } : RGB{ 130, 130, 130 };
     lcdFillC(x, BTN_Y, BTN_W, BTN_H, edge);                     // 1 px outline
     lcdFillC(x + 1, BTN_Y + 1, BTN_W - 2, BTN_H - 2, fill);
     char s[2] = { BAND_NAME[b], 0 };

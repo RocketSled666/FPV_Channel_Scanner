@@ -1,6 +1,6 @@
 /*
  * FPV Channel Scanner - Screen Common.cpp
- * Revision: 71
+ * Revision: 74
  *
  * Drawing shared by several pages (grid frame, Scanning dots, span /
  * history label, learning progress, title status), the pop-up, and
@@ -18,6 +18,9 @@ void drawGridFrame(const char *title, RGB titleColor) {
     lcdText(GRID_X + c * (CELL_W + CELL_GAP) + (CELL_W - 12) / 2, HDR_Y, s, 2, C_DIM, C_BG);
   }
   for (int r = 0; r < NUM_BANDS; r++) {
+    bool any = false;                          // HDZero mode: no letter for an empty band
+    for (int c = 0; c < NUM_CH; c++) if (gridShown(btnOrder[r], c)) any = true;
+    if (!any) continue;
     char s[2] = { BAND_NAME[btnOrder[r]], 0 };
     lcdText(8, GRID_Y + r * (CELL_H + CELL_GAP) + (CELL_H - 24) / 2, s, 3, C_TEXT, C_BG);
   }
@@ -88,10 +91,9 @@ void drawTitleStatus(float sweepsPerSec, bool learning) {
 
 // One grid box: optional white highlight (outermost), optional blue HDZero
 // outline inside it, then the fill. Shared by the Activity and Noise grids.
-void drawGridBox(int x, int y, RGB fill, bool highlight, bool hdzero) {
+void drawGridBox(int x, int y, RGB fill, bool highlight) {
   int in = 0;
   if (highlight) { lcdFillC(x, y, CELL_W, CELL_H, C_PEAKH); in = 2; }
-  if (hdzero)    { lcdFillC(x + in, y + in, CELL_W - 2 * in, CELL_H - 2 * in, C_HDZ); in += 2; }
   lcdFillC(x + in, y + in, CELL_W - 2 * in, CELL_H - 2 * in, fill);
 }
 

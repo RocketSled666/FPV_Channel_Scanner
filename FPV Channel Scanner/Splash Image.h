@@ -1,6 +1,6 @@
 /*
  * FPV Channel Scanner - Splash Image.h
- * Revision: 71
+ * Revision: 74
  *
  * Generated from FPV Channel Scanner/Splash.PNG by tools/Make Splash Header.py - do not edit.
  * 320 x 320, 256-colour palette (R, G, B), one index byte per pixel.

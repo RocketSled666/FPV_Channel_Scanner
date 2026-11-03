@@ -1,6 +1,6 @@
 /*
  * FPV Channel Scanner - Config.h
- * Revision: 71
+ * Revision: 74
  *
  * Hardware pins, tuning constants, shared types, frequency table, colors
  * and the undocumented ESP32-C5 radio access used by the scanner.
@@ -10,7 +10,7 @@
 
 // Firmware revision shown on the Save / Discard page. Keep it equal to the
 // "Revision:" line in the file headers.
-#define FW_REVISION 71
+#define FW_REVISION 74
 
 #include <Arduino.h>
 #include <SPI.h>
@@ -45,8 +45,8 @@ struct Settings {
   int redSpread10;   // noise page: quietest-to-busiest spread for full red, tenths of dB
   int quietMinS;     // noise history (s) needed before the Quietest page opens
   int hdzero;        // HDZero features on/off
-  int hdzLowBand;    // HDZero lists/outlines include L1-L8
-  int hdzE1F1;       // HDZero lists/outlines include E1 and F1
+  int hdzLowBand;    // HDZero lists/grids include L1-L8
+  int hdzE1F1;       // HDZero lists/grids include E1 and F1
   int backlight;     // LCD backlight, %
   int imdMinSep;     // IMD-free page: smallest gap allowed between two channels, MHz
   int imdLowBand;    // IMD-free page: may use L1-L8 (outside HDZero mode)
@@ -219,7 +219,7 @@ static const RGB C_BTN_SEL = {  40, 220,  80 };  // selected spectrum band butto
 static const RGB C_RED   = { 255,   0,   0 };  // full-intensity activity color
 static const RGB C_RANK  = { 160, 160, 160 };  // rank numbers on the noise page
 static const RGB C_GOOD  = {  40, 220,  80 };  // IMD score 100
-static const RGB C_HDZ   = {  40, 120, 255 };  // outline: channel an HDZero VTX can use
+static const RGB C_HDZ   = {  40, 120, 255 };  // HDZero blue: "HDZ" marker, menu title bar, splash hint
 
 // ---------------------------------------------------------------- layout / UI constants
 // (moved here from the page code when the sketch was split into files)

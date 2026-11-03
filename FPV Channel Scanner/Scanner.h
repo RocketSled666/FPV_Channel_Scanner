@@ -1,6 +1,6 @@
 /*
  * FPV Channel Scanner - Scanner.h
- * Revision: 71
+ * Revision: 74
  *
  * Shared declarations: every global variable (defined in State.cpp) and
  * every function, grouped by the file that defines it. Each .cpp file
@@ -22,6 +22,8 @@ void saveSpan();
 void formatSetting(int i, char *buf, int len);
 void stepSetting(int i, int dir);
 bool hdzeroOk(int b, int c);
+bool gridShown(int b, int c);
+bool bandEnabled(int b);          // spectrum band button usable (HDZero mode: band has an HDZero channel)     // false = box left blank (HDZero mode, channel HDZero can't use)
 
 // ---------------------------------------------------------------- Splash.cpp
 void showSplash();
@@ -140,7 +142,7 @@ int nextBandInButtonOrder(int band);
 
 // ---------------------------------------------------------------- Screen Common.cpp
 void drawGridFrame(const char *title, RGB titleColor);
-void drawGridBox(int x, int y, RGB fill, bool highlight, bool hdzero);
+void drawGridBox(int x, int y, RGB fill, bool highlight);
 void updateScanDots();
 void drawScanning(int y);
 void drawSpanLabel();

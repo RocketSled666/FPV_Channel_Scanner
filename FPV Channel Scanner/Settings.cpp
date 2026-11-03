@@ -1,6 +1,6 @@
 /*
  * FPV Channel Scanner - Settings.cpp
- * Revision: 71
+ * Revision: 74
  *
  * User settings: the values, their limits and defaults, loading them from
  * flash at start-up and saving them, plus helpers that depend on them.
@@ -55,7 +55,7 @@ const SettingDef SETTINGS[] = {
   { "FPV Channel Noise", "Full red spread", "redSpread", &cfg.redSpread10,   1,  50,  1,  5, 0, 1, " dB",  "Quietest-to-busiest spread shown as full red" },
   { "Quietest Channels", "Min history",     "quietMin",  &cfg.quietMinS,     0, 600, 10, 60, 0, 0, " s",   "Noise history needed before the list opens" },
   { "Quietest Channels", "L Band Limit",    "lLimit",    &cfg.lBandLimit,    1,   8,  1,  8, 0, 0, "",     "Max L-band channels in Quietest and IMD lists" },
-  { "Quietest for HDZero", "HDZero features", "hdzero",    &cfg.hdzero,        0,   1,  1,  0, 1, 0, "",     "HDZero page and blue channel outlines" },
+  { "Quietest for HDZero", "HDZero features", "hdzero",    &cfg.hdzero,        0,   1,  1,  0, 1, 0, "",     "HDZero lists and HDZero-only grids" },
   { "Quietest for HDZero", "Low band L1-L8",  "hdzLow",    &cfg.hdzLowBand,    0,   1,  1,  1, 1, 0, "",     "Include L1-L8 (needs low band unlocked)" },
   { "Quietest for HDZero", "E1 and F1",       "hdzE1F1",   &cfg.hdzE1F1,       0,   1,  1,  1, 1, 0, "",     "Include E1 and F1 (not on every product page)" },
   { "IMD-Free Channels", "Min spacing",     "imdSep",    &cfg.imdMinSep,    20,  80,  1, 37, 0, 0, " MHz", "Smallest gap allowed between channels in a set" },
@@ -142,6 +142,19 @@ bool hdzeroOk(int b, int c) {
   if (BAND_NAME[b] == 'L' && !cfg.hdzLowBand) return false;
   if (!cfg.hdzE1F1 && ((BAND_NAME[b] == 'E' && c == 0) || (BAND_NAME[b] == 'F' && c == 0))) return false;
   return true;
+}
+
+// Grid pages: in HDZero mode only channels an HDZero VTX can use get a box.
+bool gridShown(int b, int c) {
+  return !cfg.hdzero || hdzeroOk(b, c);
+}
+
+// Spectrum band buttons: in HDZero mode only bands with at least one HDZero
+// channel (following the HDZero settings) can be selected.
+bool bandEnabled(int b) {
+  if (!cfg.hdzero) return true;
+  for (int c = 0; c < NUM_CH; c++) if (hdzeroOk(b, c)) return true;
+  return false;
 }
 
 // "HDZero: R1-8, L1-8, E1, F1, F2, F4", following the HDZero settings.

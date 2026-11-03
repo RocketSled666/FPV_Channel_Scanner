@@ -72,8 +72,9 @@ HDZero page replaces Quietest Channels; otherwise only Quietest Channels is show
 only once there are 60 s of noise history; before that a "Wait NNs"
 pop-up shows and the page stays put.
 - **FPV Channel Activity** (grid): all 48 channels; square brightness = power
-  above the noise floor right now. In HDZero mode, channels an HDZero VTX can
-  use have a blue outline (also on the Noise grid).
+  above the noise floor right now. In HDZero mode only channels an HDZero VTX
+  can use are drawn; the others are left blank (same on
+  the Noise grid, whose shading and ranks then cover only those channels).
 - **Spectrum**: continuous sweep of one band in 4 MHz steps (outer channels
   20 MHz beyond the band), with the point nearest each channel moved onto the
   channel's exact frequency, so every channel is measured directly. Channel numbers sit under faint marker lines; white
@@ -111,8 +112,8 @@ pop-up shows and the page stays put.
   HDZero mode only HDZero channels are used, and the footer says
   "HDZero only".
 **HDZero mode:** turned on with the "HDZero features" setting in the
-Configuration menu. It enables the Quietest for HDZero page and the blue
-outlines, shows a blue "HDZ" marker at the top left of the grid pages, and
+Configuration menu. It enables the Quietest for HDZero page, draws only
+HDZero channels on the grid pages, shows a blue "HDZ" marker at the top left of the grid pages, and
 limits the IMD-Free page to HDZero channels. The HDZero lists can leave out L1-L8 and E1/F1 (settings on the same page).
 
 ## Configuration
@@ -153,7 +154,9 @@ bar, then a Save / Discard page:
 - **ENTER (short)** on Channel Noise: clear the history (does nothing on the Quietest and IMD-Free pages)
   and start over.
   (Re-learning the noise floor also clears it.)
-- **ENTER (short)** on the spectrum: select the next band button.
+- **ENTER (short)** on the spectrum: select the next band button. In HDZero
+  mode, bands with no HDZero channel (A, B, and L or E when those are off in
+  the HDZero settings) are drawn darker grey and skipped.
 - **ENTER (hold 0.7 s)**: re-learn the noise floor (grid: all channels;
   spectrum: current band). Do it with your VTXs off if you can.
 - Serial monitor (115200) prints readings once per second.

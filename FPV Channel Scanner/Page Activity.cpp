@@ -1,6 +1,6 @@
 /*
  * FPV Channel Scanner - Page Activity.cpp
- * Revision: 71
+ * Revision: 74
  *
  * FPV Channel Activity page (the live grid) and the grid sweep that
  * also feeds the Channel Noise and Quietest Channels pages.
@@ -29,10 +29,11 @@ void gridDrawStatic() {
 }
 
 void gridDrawCell(int b, int c, int level, bool peak) {
+  if (!gridShown(b, c)) return;                     // HDZero mode: blank where HDZero can't tune
   int x = GRID_X + c * (CELL_W + CELL_GAP);
   int y = GRID_Y + bandRow[b] * (CELL_H + CELL_GAP);
   RGB col = scaleColor(C_HOT, 0.06f + 0.94f * level / 32.0f);
-  drawGridBox(x, y, col, peak, cfg.hdzero && hdzeroOk(b, c));
+  drawGridBox(x, y, col, peak);
   char f[6];
   snprintf(f, sizeof(f), "%u", FPV_MHZ[b][c]);
   RGB tc = level > 16 ? RGB{ 0, 0, 0 } : C_DIM;
@@ -111,6 +112,7 @@ void gridSweep() {
   int pb = -1, pc = -1; float best = -1e9f;
   for (int b = 0; b < NUM_BANDS; b++)
     for (int c = 0; c < NUM_CH; c++) {
+      if (!gridShown(b, c)) continue;              // peak only among drawn boxes
       float above = gridSmooth[b][c] - gridFloor[b][c];
       if (isnan(above) || gridFloor[b][c] == 0) above = 0;
       if (above > best) { best = above; pb = b; pc = c; }
