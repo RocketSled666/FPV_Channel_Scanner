@@ -2,6 +2,34 @@
 
 Revision numbers match the `Revision:` line in the source headers.
 
+## Revision 79
+- Waterfall: the colour for no signal is a darker blue (0, 0, 35 instead of
+  0, 0, 60), and "Waterfall log" now defaults to 8.
+
+## Revision 78
+- Spectrum waterfall colours now follow a log curve, so weak signals show
+  up brighter: colour = log(1 + k*x) / log(1 + k), where x is the signal
+  as a fraction of the span. k is the new "Waterfall log" setting on the
+  Spectrum Configuration page (0-20, default 4; 0 = linear, as before).
+
+## Revision 77
+- Releasing the IMD-Free hold now re-picks the sets from the latest noise
+  history and redraws them the moment ENTER is pressed, instead of at the
+  end of the next grid sweep. Turning hold on or off also updates "Hold"
+  and the ENTER hint at once. (The noise history keeps collecting while
+  the sets are held.)
+
+## Revision 76
+- IMD-Free hold: "Hold" is now red, and it and the "ENTER: Hold / Release"
+  hint sit a little lower (6 px and 4 px).
+
+## Revision 75
+- IMD-Free Channels: ENTER now holds the channel sets. While held they are
+  not re-picked, and "Hold" flashes (about once a second) under the table.
+  ENTER again, or leaving the page, releases the hold and the sets are
+  re-picked at once. A hint under the table shows "ENTER: Hold" or
+  "ENTER: Release". The Help page lists "IMD-Free: hold / release the sets".
+
 ## Revision 74
 - HDZero mode, Spectrum page: band buttons for bands with no HDZero channel
   (A and B, plus L when "Low band L1-L8" is off and E when "E1 and F1" is

@@ -1,6 +1,6 @@
 /*
  * FPV Channel Scanner - Scanner.h
- * Revision: 74
+ * Revision: 79
  *
  * Shared declarations: every global variable (defined in State.cpp) and
  * every function, grouped by the file that defines it. Each .cpp file
@@ -180,6 +180,7 @@ void quietInvalidate();
 void quietDrawStatic();
 void quietDrawEntry(int slot, int idx);
 void quietDraw(bool learning, uint32_t learnStart);
+void imdToggleHold();             // IMD-Free page: ENTER freezes / releases the sets
 
 // ---------------------------------------------------------------- Page Spectrum.cpp
 int freqToCol(float mhz);

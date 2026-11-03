@@ -1,6 +1,6 @@
 /*
  * FPV Channel Scanner - Config Menu.cpp
- * Revision: 74
+ * Revision: 79
  *
  * Configuration menu, opened by holding KEY_L + KEY_R for CONFIG_HOLD_MS on
  * any page.
@@ -240,6 +240,7 @@ static void drawHelpPage() {
   helpLine(y, "Activity:",        "cycle the span (dB), saved");
   helpLine(y, "Spectrum:",        "select the next band");
   helpLine(y, "Noise:",           "clear the noise history");
+  helpLine(y, "IMD-Free:",        "hold / release the sets");
   helpHeading(y, "Page order");
   lcdText(10, y, cfg.hdzero ? "Right: Activity > Spectrum > Noise"
                             : "Right: Activity > Spectrum > Noise > Quietest", 1, C_TEXT, C_BG);

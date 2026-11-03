@@ -1,6 +1,6 @@
 /*
  * FPV Channel Scanner - Settings.cpp
- * Revision: 74
+ * Revision: 79
  *
  * User settings: the values, their limits and defaults, loading them from
  * flash at start-up and saving them, plus helpers that depend on them.
@@ -40,6 +40,7 @@ Settings cfg = {
   10,    // imdRefreshS
   3000,  // moveFadeMs
   8,     // lBandLimit
+  8,     // wfLogK
 };
 
 const SettingDef SETTINGS[] = {
@@ -50,6 +51,7 @@ const SettingDef SETTINGS[] = {
   { "Spectrum", "Step",            "specStep",  &cfg.specStep,      2,  10,  1,  4, 0, 0, " MHz", "Sweep step; channels are always hit exactly" },
   { "Spectrum", "Samples/point",   "specSmp",   &cfg.specSamples,   1,   8,  1,  1, 0, 0, "",     "Readings averaged per point (3.2 ms each)" },
   { "Spectrum", "Peak decay",      "peakDecay", &cfg.peakDecay10,   2, 100,  2, 18, 0, 1, " px",  "How fast peak-hold dots fall, per sweep" },
+  { "Spectrum", "Waterfall log",   "wfLog",     &cfg.wfLogK,        0,  20,  1,  8, 0, 0, "",     "0 = linear; higher = weak signals brighter" },
   { "FPV Channel Noise", "Busy level",      "busyDb",    &cfg.busyDb,        1,  15,  1,  3, 0, 0, " dB",  "Signal above floor that counts as busy" },
   { "FPV Channel Noise", "Shading gamma",   "gamma",     &cfg.gamma100,     20, 100,  5, 55, 0, 2, "",     "Below 1 brightens small differences" },
   { "FPV Channel Noise", "Full red spread", "redSpread", &cfg.redSpread10,   1,  50,  1,  5, 0, 1, " dB",  "Quietest-to-busiest spread shown as full red" },

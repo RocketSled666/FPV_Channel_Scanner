@@ -1,6 +1,6 @@
 /*
  * FPV Channel Scanner
- * Revision: 74
+ * Revision: 79
  * Board : Waveshare ESP32-C5-LCD-2.73 (ESP32-C5, ILI9488 320x320 SPI LCD)
  * Core  : Arduino-ESP32 3.3.x  (Tools > Board > "ESP32C5 Dev Module")
  *
@@ -85,8 +85,10 @@
  *                                   on release
  *   KEY_L + KEY_R held 5 s    = open the Configuration menu from any page
  *   ENTER (short) on GRID     = cycle the span (dB); saved across power cycles
- *   ENTER (short) on NOISE    = clear the noise history (does nothing on
- *                             the Quietest and IMD-Free pages)
+ *   ENTER (short) on NOISE    = clear the noise history
+ *   ENTER (short) on IMD-FREE = hold / release the channel sets (no
+ *                             re-picking while held; "Hold" flashes)
+ *   ENTER (short) on either QUIETEST page does nothing
  *   ENTER (short) on SPECTRUM = select the next band button above the graph
  *                             (HDZero mode: bands HDZero can't use are skipped)
  *   ENTER (hold 0.7 s)        = re-learn the noise floor (do it with VTXs off)
@@ -177,6 +179,14 @@
  *   73  Blue HDZero outlines removed from the grid boxes
  *   74  HDZero mode: spectrum band buttons without an HDZero channel are
  *       darker grey and skipped by ENTER
+ *   75  ENTER on IMD-Free holds the sets (flashing "Hold"); ENTER again or
+ *       another page releases them
+ *   76  "Hold" in red; "Hold" and the ENTER hint moved down 6 / 4 px
+ *   77  Releasing the IMD hold re-picks and redraws the sets at once (not
+ *       after the next grid sweep); hold / release indicators also at once
+ *   78  Waterfall colours on a log curve, set by "Waterfall log" (Spectrum
+ *       settings; 0 = linear, default 4) so weak signals are brighter
+ *   79  Waterfall floor colour darker blue; Waterfall log default 8
  */
 
 #include "Scanner.h"
@@ -282,7 +292,8 @@ void loop() {
       gridInvalidate(); gridFooterDirty = true;
     } else if (mode == MODE_ACTIVITY) {     // restart the activity sums
       actClear(); actInvalidate(); actFooterDirty = true;
-    } else if (quietPage()) {               // Quietest / IMD-Free pages: ENTER does nothing
+    } else if (quietPage()) {               // IMD-Free: hold / release; Quietest pages: nothing
+      if (mode == MODE_IMD) imdToggleHold();
     } else {                                // next band button
       specSetBand(nextBandInButtonOrder(specBand));
       specDrawStatic();

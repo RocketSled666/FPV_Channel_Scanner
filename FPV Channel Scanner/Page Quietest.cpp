@@ -1,6 +1,6 @@
 /*
  * FPV Channel Scanner - Page Quietest.cpp
- * Revision: 74
+ * Revision: 79
  *
  * Quietest Channels and Quietest for HDZero pages: the QUIET_LIST_N
  * quietest channels from the Channel Noise history, in two columns of 8:
@@ -167,7 +167,46 @@ static void imdInvalidate() {
   imdDirty = true;
 }
 
+// ENTER on the IMD-Free page: "hold" freezes the sets (no re-picking) until
+// ENTER is pressed again or another page is shown. While held, "Hold"
+// flashes under the table.
+static bool imdHold = false;
+static int  imdHoldShown = -1, imdHintShown = -1;   // what's on screen, -1 = redraw
+
+static void imdDrawColumn(int col);
+static void imdDrawHold();
+
+// Takes effect at once, not at the end of the next grid sweep: on release
+// the sets are re-picked from the noise history (which kept collecting
+// while held) and redrawn right away; "Hold" and the hint update too.
+void imdToggleHold() {
+  imdHold = !imdHold;
+  imdHoldShown = imdHintShown = -1;
+  if (!imdHold) imdCompute();                        // released: re-pick now
+  for (int col = 0; col < IMD_COLS; col++) imdDrawColumn(col);
+  imdDrawHold();
+}
+
+static void imdDrawHold() {
+  int on = imdHold && (millis() / 500) % 2 == 0;     // flashes about once a second
+  if (on != imdHoldShown) {
+    lcdFill(0, IMD_HOLD_Y, LCD_W, 16, 0, 0, 0);
+    if (on) lcdText((LCD_W - 4 * 12) / 2, IMD_HOLD_Y, "Hold", 2, C_RED, C_BG);    // red
+    imdHoldShown = on;
+  }
+  if ((int)imdHold != imdHintShown) {                // button hint
+    lcdFill(0, IMD_HINT_Y, LCD_W, 8, 0, 0, 0);
+    const char *act = imdHold ? "Release" : "Hold";
+    int x = (LCD_W - 6 * (7 + (int)strlen(act))) / 2;
+    lcdText(x, IMD_HINT_Y, "ENTER:", 1, C_TEXT, C_BG);
+    lcdText(x + 42, IMD_HINT_Y, act, 1, C_GOOD, C_BG);
+    imdHintShown = imdHold;
+  }
+}
+
 static void imdDrawStatic() {
+  imdHold = false;                                    // a fresh visit is never held
+  imdHoldShown = imdHintShown = -1;
   lcdFill(0, 0, LCD_W, LCD_H, 0, 0, 0);
   lcdText(4, 4, "IMD-Free Channels", 2, C_GOOD, C_BG);     // green title
   for (int col = 0; col < IMD_COLS; col++) {
@@ -225,12 +264,15 @@ static void imdDrawColumn(int col) {
 static void imdDraw(bool learning, uint32_t learnStart) {
   static bool lastLearning = false, lastNoise = false;
   bool noise = actLastMs != 0;
-  if (imdDirty || noise != lastNoise || millis() - imdComputedMs >= IMD_REFRESH_MS) {
+  // Re-pick unless held (but always once, so there is something to show).
+  if (imdComputedMs == 0 ||
+      (!imdHold && (imdDirty || noise != lastNoise || millis() - imdComputedMs >= IMD_REFRESH_MS))) {
     imdCompute();
     if (noise != lastNoise) quietFooterDirty = true;
     lastNoise = noise;
   }
   for (int col = 0; col < IMD_COLS; col++) imdDrawColumn(col);
+  imdDrawHold();
 
   if (learning) {
     drawLearnProgress(FOOT_Y, (gridSweeps - learnStart) * 100 / GRID_LEARN_SWEEPS);

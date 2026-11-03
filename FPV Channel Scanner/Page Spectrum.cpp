@@ -1,6 +1,6 @@
 /*
  * FPV Channel Scanner - Page Spectrum.cpp
- * Revision: 74
+ * Revision: 79
  *
  * Spectrum page: continuous sweep across one band in SPEC_STEP_MHZ
  * steps, with channel markers, values and band buttons. The sweep point
@@ -8,7 +8,8 @@
  * channel is measured directly; points are drawn by their real frequency.
  * Under the graph, in a white box, a WF_H-pixel waterfall shows the last WF_H sweeps, one
  * pixel row each, newest at the top: weak signal is dark blue, strong signal
- * bright yellow (through purple and orange).
+ * bright yellow (through purple and orange), on a log curve ("Waterfall
+ * log" setting) so weak signals show up more.
  */
 
 #include "Scanner.h"
@@ -23,7 +24,7 @@ static uint8_t wfLut[WF_LEVELS][3];
 // Colour ramp: dark blue -> purple -> orange -> bright yellow.
 static void wfBuildLut() {
   static const float stop[4][4] = {      // position, R, G, B
-    { 0.00f,   0,   0,  60 },
+    { 0.00f,   0,   0,  35 },     // darker blue at the floor
     { 0.35f, 110,   0, 170 },
     { 0.70f, 240,  90,  30 },
     { 1.00f, 255, 255,   0 },
@@ -292,7 +293,11 @@ void specSweep() {
     float above = a0 + (a1 - a0) * t;     // trace is drawn even while learning
     if (above > bestAbove) { bestAbove = above; bestMhz = f; }
     int h = constrain((int)lroundf(above * GH / cfg.span), 0, GH);
-    wfNew[x] = (uint8_t)constrain((int)lroundf(above * (WF_LEVELS - 1) / cfg.span), 0, WF_LEVELS - 1);
+    // Waterfall colour: 0..1 of the span, through a log curve set by
+    // "Waterfall log" (0 = linear; higher lifts weak signals).
+    float wx = constrain(above / cfg.span, 0.0f, 1.0f);
+    if (cfg.wfLogK > 0) wx = logf(1.0f + cfg.wfLogK * wx) / logf(1.0f + cfg.wfLogK);
+    wfNew[x] = (uint8_t)constrain((int)lroundf(wx * (WF_LEVELS - 1)), 0, WF_LEVELS - 1);
     colPeak[x] = max(colPeak[x] - PEAK_DECAY_PX, (float)h); // peak hold, falling
     specDrawColumn(x, h, (int)colPeak[x]);
     if ((x & 31) == 0) pollInput();

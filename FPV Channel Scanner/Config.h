@@ -1,6 +1,6 @@
 /*
  * FPV Channel Scanner - Config.h
- * Revision: 74
+ * Revision: 79
  *
  * Hardware pins, tuning constants, shared types, frequency table, colors
  * and the undocumented ESP32-C5 radio access used by the scanner.
@@ -10,7 +10,7 @@
 
 // Firmware revision shown on the Save / Discard page. Keep it equal to the
 // "Revision:" line in the file headers.
-#define FW_REVISION 74
+#define FW_REVISION 79
 
 #include <Arduino.h>
 #include <SPI.h>
@@ -60,6 +60,7 @@ struct Settings {
   int imdRefreshS;   // IMD-free page: re-pick sets this often (s)
   int moveFadeMs;    // Quietest / IMD pages: moved-channel red fade time (0 = off)
   int lBandLimit;    // most L-band channels in a Quietest list or an IMD-free set (8 = no limit)
+  int wfLogK;        // spectrum waterfall log curve: 0 = linear, higher = weak signals brighter
 };
 
 // One line in the Configuration menu (Settings.cpp)
@@ -237,6 +238,8 @@ static const RGB C_HDZ   = {  40, 120, 255 };  // HDZero blue: "HDZ" marker, men
 #define IMD_Y0       48      // first channel row
 #define IMD_PITCH    30      // channel row spacing (scale-3 text)
 #define IMD_SCORE_Y  (IMD_Y0 + IMD_MAX_N * IMD_PITCH + 2)   // "IMD 100" under each column
+#define IMD_HOLD_Y   252     // flashing "Hold" under the IMD table
+#define IMD_HINT_Y   274     // "ENTER: Hold / Release" hint
 #define IMD_NEAR_MHZ 35      // an IMD product this close to a channel in use hurts it
 #define IMD_REFRESH_MS ((uint32_t)cfg.imdRefreshS * 1000u)  // re-pick with the latest noise history this often (User Interface page)
 #define MOVE_FADE_MS ((uint32_t)cfg.moveFadeMs)  // Quietest / IMD pages: a channel that moves shows red, fading back over this (User Interface page)

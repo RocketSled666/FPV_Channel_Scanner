@@ -129,7 +129,7 @@ bar, then a Save / Discard page:
 | Page | Settings |
 |---|---|
 | FPV Channel Activity | Span (dB), learn sweeps, samples per channel |
-| Spectrum | Step (MHz), samples per point, peak decay |
+| Spectrum | Step (MHz), samples per point, peak decay, waterfall log curve (0 = linear) |
 | FPV Channel Noise | Busy level (dB), shading gamma, full-red spread (dB) |
 | Quietest Channels | Minimum history before the list opens (s); L Band Limit (1-8): most L-band channels in the Quietest lists and in each IMD-free set (8 = no limit) |
 | Quietest for HDZero | HDZero features, low band L1-L8, E1 and F1 |
@@ -151,7 +151,10 @@ bar, then a Save / Discard page:
 - **ENTER (short)** on the grid: cycle the span (15-40 dB, default 15). It sets
   the grid brightness scale and the spectrum graph height, and is remembered
   across power cycles.
-- **ENTER (short)** on Channel Noise: clear the history (does nothing on the Quietest and IMD-Free pages)
+- **ENTER (short)** on Channel Noise: clear the history (does nothing on the Quietest pages).
+- **ENTER (short)** on IMD-Free: hold the channel sets (they stop being
+  re-picked and "Hold" flashes under the table); ENTER again, or going to
+  another page, releases them.
   and start over.
   (Re-learning the noise floor also clears it.)
 - **ENTER (short)** on the spectrum: select the next band button. In HDZero
