@@ -1,6 +1,6 @@
 /*
  * FPV Channel Scanner - Splash.cpp
- * Revision: 63
+ * Revision: 71
  *
  * Start-up splash screen: the picture from Splash.PNG (stored in
  * "Splash Image.h", made by tools/Make Splash Header.py), with a blue hint
@@ -26,7 +26,8 @@ void showSplash() {
   // Hint at the bottom (the picture is black there). Too wide for one line
   // at this font size, so it is split over two centred lines.
   const char *l1 = "Press forward+backward buttons now for";
-  const char *l2 = "Settings screen, or hold for >5s at any time";
+  char l2[56];
+  snprintf(l2, sizeof(l2), "Settings screen, or hold for >%ds at any time", (int)(CONFIG_HOLD_MS / 1000));
   lcdText((LCD_W - 6 * (int)strlen(l1)) / 2, LCD_H - 22, l1, 1, C_HDZ, C_BG);
   lcdText((LCD_W - 6 * (int)strlen(l2)) / 2, LCD_H - 11, l2, 1, C_HDZ, C_BG);
 }

@@ -1,6 +1,6 @@
 /*
  * FPV Channel Scanner - Page Quietest.cpp
- * Revision: 63
+ * Revision: 71
  *
  * Quietest Channels and Quietest for HDZero pages: the QUIET_LIST_N
  * quietest channels from the Channel Noise history, in two columns of 8:
@@ -114,7 +114,7 @@ struct ImdSearch {
   uint32_t nodes;
 };
 
-static void imdSearch(ImdSearch &S, int k, int start, float noise, int minGap) {
+static void imdSearch(ImdSearch &S, int k, int start, float noise, int minGap, int lUsed) {
   if (++S.nodes % 512 == 0) pollInput();            // keep the buttons responsive
   if (k >= 3) {
     // Score, noise and smallest gap can only get worse as channels are
@@ -133,8 +133,10 @@ static void imdSearch(ImdSearch &S, int k, int start, float noise, int minGap) {
   for (int i = start; i <= imdNCand - (S.n - k); i++) {
     int gap = k ? imdCandMhz[i] - S.f[k - 1] : 100000;
     if (gap < cfg.imdMinSep) continue;
+    bool isL = BAND_NAME[imdCandIdx[i] / NUM_CH] == 'L';
+    if (isL && lUsed >= cfg.lBandLimit) continue;           // "L Band Limit" setting
     S.pick[k] = i; S.f[k] = imdCandMhz[i];
-    imdSearch(S, k + 1, i + 1, noise + imdCandNoise[i], gap < minGap ? gap : minGap);
+    imdSearch(S, k + 1, i + 1, noise + imdCandNoise[i], gap < minGap ? gap : minGap, lUsed + (isL ? 1 : 0));
   }
 }
 
@@ -145,7 +147,7 @@ static void imdCompute() {
   for (int col = 0; col < IMD_COLS; col++) {
     ImdSearch S;
     S.n = IMD_MIN_N + col; S.bestValue = -1e9f; S.bestRating = -999; S.nodes = 0;
-    if (S.n <= imdNCand) imdSearch(S, 0, 0, 0, 100000);
+    if (S.n <= imdNCand) imdSearch(S, 0, 0, 0, 100000, 0);
     nodes += S.nodes;
     imdScore[col] = S.bestRating;
     for (int i = 0; i < IMD_MAX_N; i++)
@@ -297,10 +299,12 @@ void quietDraw(bool learning, uint32_t learnStart) {
   int order[NUM_BANDS * NUM_CH];
   actRankOrder(order);
   // On the HDZero page, keep only channels an HDZero VTX can use.
-  int list[NUM_BANDS * NUM_CH], nList = 0;
+  // Both lists hold at most cfg.lBandLimit L-band channels ("L Band Limit").
+  int list[NUM_BANDS * NUM_CH], nList = 0, nL = 0;
   for (int i = 0; i < NUM_BANDS * NUM_CH; i++) {
     int k = order[i];
     if (mode == MODE_HDZERO && !hdzeroOk(k / NUM_CH, k % NUM_CH)) continue;
+    if (BAND_NAME[k / NUM_CH] == 'L') { if (nL >= cfg.lBandLimit) continue; nL++; }
     list[nList++] = k;
   }
   for (int i = 0; i < QUIET_LIST_N; i++) {

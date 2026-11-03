@@ -1,6 +1,6 @@
 /*
  * FPV Channel Scanner - Screen Common.cpp
- * Revision: 63
+ * Revision: 71
  *
  * Drawing shared by several pages (grid frame, Scanning dots, span /
  * history label, learning progress, title status), the pop-up, and
@@ -101,8 +101,8 @@ ScreenMode pageAfter(ScreenMode m, int dir) {
     switch (m) {
       case MODE_GRID:     return MODE_SPECTRUM;
       case MODE_SPECTRUM: return MODE_ACTIVITY;
-      case MODE_ACTIVITY: return MODE_QUIET;
-      case MODE_QUIET:    return cfg.hdzero ? MODE_HDZERO : MODE_IMD;
+      case MODE_ACTIVITY: return cfg.hdzero ? MODE_HDZERO : MODE_QUIET;   // HDZero mode: HDZero list only
+      case MODE_QUIET:    return MODE_IMD;
       case MODE_HDZERO:   return MODE_IMD;
       default:            return MODE_GRID;       // from IMD-Free
     }
@@ -112,8 +112,7 @@ ScreenMode pageAfter(ScreenMode m, int dir) {
     case MODE_SPECTRUM: return MODE_GRID;
     case MODE_ACTIVITY: return MODE_SPECTRUM;
     case MODE_IMD:      return cfg.hdzero ? MODE_HDZERO : MODE_QUIET;
-    case MODE_HDZERO:   return MODE_QUIET;
-    default:            return MODE_ACTIVITY;     // from Quietest
+    default:            return MODE_ACTIVITY;     // from either Quietest list
   }
 }
 

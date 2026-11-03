@@ -1,6 +1,6 @@
 /*
  * FPV Channel Scanner
- * Revision: 63
+ * Revision: 71
  * Board : Waveshare ESP32-C5-LCD-2.73 (ESP32-C5, ILI9488 320x320 SPI LCD)
  * Core  : Arduino-ESP32 3.3.x  (Tools > Board > "ESP32C5 Dev Module")
  *
@@ -31,12 +31,14 @@
  *   QUIETEST CHANNELS - the 16 quietest channels from the Channel Noise
  *               history, in order (1 = quietest), with average dB and busy %.
  *               Reached only by KEY_R from Channel Noise, once there is at
- *               least 60 s of history; before that a "Wait >60s" pop-up
- *               shows and the page doesn't change.
+ *               least 60 s of history; before that a "Wait NNs" pop-up
+ *               (the seconds still to go)
+ *               shows and the page doesn't change. Not shown in HDZero
+ *               mode (Quietest for HDZero takes its place).
  *   QUIETEST FOR HDZERO - the same list, limited to channels an HDZero VTX
  *               can use: R1-R8, E1, F1, F2, F4 and L1-L8 (low band unlocked).
- *               Reached only by KEY_R from Quietest Channels, and only in
- *               HDZero mode.
+ *               Only in HDZero mode, where it replaces Quietest Channels:
+ *               reached by KEY_R from Channel Noise (same 60 s wait).
  *   IMD-FREE CHANNELS - for 3, 4, 5 and 6 pilots, the channel set (band /
  *               channel only) with the least intermodulation interference:
  *               two VTXs on f1, f2 make interference at 2*f1-f2 and 2*f2-f1,
@@ -61,18 +63,22 @@
  *   then a Save / Discard page; both restart the device. In the
  *   menu: KEY_L / KEY_R move up / down, ENTER flips an On/Off setting or
  *   edits a number (then KEY_L / KEY_R step it, hold to repeat, ENTER sets
- *   it). All settings are kept in flash. See Settings.cpp for the list.
+ *   it); holding ENTER jumps to the Save / Discard page. A User Interface
+ *   page holds the timings (long press, Configuration hold, splash, pop-up,
+ *   scanning dots, IMD refresh, moved-channel fade). All settings are kept
+ *   in flash. See Settings.cpp for the list.
  *
  *   HDZero mode (the "HDZero features" setting) adds the Quietest for
  *   HDZero page, a blue outline on HDZero-usable channels on both grid
  *   pages (inside the white highlight when a box has both), and a blue
  *   "HDZ" marker at the top left of the grids, and limits the IMD-Free page
- *   to HDZero channels. Without it, KEY_R from Quietest goes to IMD-Free.
+ *   to HDZero channels. In HDZero mode, Quietest for HDZero replaces
+ *   Quietest Channels (the normal list isn't shown).
  *
- *   KEY_R: Activity -> Spectrum -> Noise -> Quietest -> HDZero -> IMD-Free
- *          -> Activity
+ *   KEY_R: Activity -> Spectrum -> Noise -> Quietest -> IMD-Free -> Activity
+ *          (HDZero mode: ... Noise -> Quietest for HDZero -> IMD-Free ...)
  *   KEY_L: Activity -> Noise -> Spectrum -> Activity;
- *          IMD-Free -> HDZero -> Quietest -> Noise
+ *          IMD-Free -> Quietest (or Quietest for HDZero) -> Noise
  *
  * Buttons:
  *   KEY_L / KEY_R (GPIO2 / GPIO3) = previous / next page (order above),
@@ -151,6 +157,19 @@
  *   62  ENTER (short) does nothing on the Quietest and IMD-Free pages
  *   63  Quietest for HDZero now comes before IMD-Free; IMD-Free footer says
  *       "HDZero only" in HDZero mode
+ *   64  HDZero mode shows only Quietest for HDZero, not Quietest Channels
+ *   65  Save / Discard page shows the revision (FW_REVISION in Config.h)
+ *       and the build date and time
+ *   66  Build line moved to the bottom of the Save / Discard page, darker
+ *       grey, two blank lines below the footer
+ *   67  User Interface Configuration page for the UI timings (were compile-
+ *       time constants); long ENTER press in Configuration = Save / Discard
+ *   68  New splash picture (Splash.PNG replaced, Splash Image.h regenerated)
+ *   69  The Quietest pop-up shows the time still to wait ("Wait 23s")
+ *   70  "L Band Limit" setting: most L-band channels in the Quietest lists
+ *       and in each IMD-free set
+ *   71  L Band Limit range 1-8 (0 removed: "Use L band" / "Low band L1-L8"
+ *       already turn L band off)
  */
 
 #include "Scanner.h"
@@ -220,9 +239,11 @@ void loop() {
   if (evToggle) {
     evToggle = false; evEnterShort = evEnterLong = false;
     ScreenMode next = pageAfter(mode, pageDir);
-    if (next == MODE_QUIET && actTrackedS < QUIET_MIN_HISTORY_S) {
-      char msg[16];                                  // not enough history yet
-      snprintf(msg, sizeof(msg), "Wait >%ds", QUIET_MIN_HISTORY_S);
+    if ((next == MODE_QUIET || next == MODE_HDZERO) && actTrackedS < QUIET_MIN_HISTORY_S) {
+      char msg[16];                                  // not enough history yet:
+      int left = (int)ceilf(QUIET_MIN_HISTORY_S - actTrackedS);   // seconds still to wait
+      if (left < 1) left = 1;
+      snprintf(msg, sizeof(msg), "Wait %ds", left);
       showPopup(msg);
       Serial.printf("quietest: %lu of %d s of history, wait longer\n",
                     (unsigned long)actTrackedS, QUIET_MIN_HISTORY_S);

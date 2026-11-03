@@ -1,6 +1,6 @@
 /*
  * FPV Channel Scanner - Settings.cpp
- * Revision: 63
+ * Revision: 71
  *
  * User settings: the values, their limits and defaults, loading them from
  * flash at start-up and saving them, plus helpers that depend on them.
@@ -31,6 +31,15 @@ Settings cfg = {
   100,   // backlight
   37,    // imdMinSep
   0,     // imdLowBand
+  700,   // longPressMs
+  5000,  // configHoldMs
+  5000,  // splashMs
+  80,    // splashComboMs
+  1500,  // popupMs
+  400,   // scanDotMs
+  10,    // imdRefreshS
+  3000,  // moveFadeMs
+  8,     // lBandLimit
 };
 
 const SettingDef SETTINGS[] = {
@@ -45,11 +54,20 @@ const SettingDef SETTINGS[] = {
   { "FPV Channel Noise", "Shading gamma",   "gamma",     &cfg.gamma100,     20, 100,  5, 55, 0, 2, "",     "Below 1 brightens small differences" },
   { "FPV Channel Noise", "Full red spread", "redSpread", &cfg.redSpread10,   1,  50,  1,  5, 0, 1, " dB",  "Quietest-to-busiest spread shown as full red" },
   { "Quietest Channels", "Min history",     "quietMin",  &cfg.quietMinS,     0, 600, 10, 60, 0, 0, " s",   "Noise history needed before the list opens" },
+  { "Quietest Channels", "L Band Limit",    "lLimit",    &cfg.lBandLimit,    1,   8,  1,  8, 0, 0, "",     "Max L-band channels in Quietest and IMD lists" },
   { "Quietest for HDZero", "HDZero features", "hdzero",    &cfg.hdzero,        0,   1,  1,  0, 1, 0, "",     "HDZero page and blue channel outlines" },
   { "Quietest for HDZero", "Low band L1-L8",  "hdzLow",    &cfg.hdzLowBand,    0,   1,  1,  1, 1, 0, "",     "Include L1-L8 (needs low band unlocked)" },
   { "Quietest for HDZero", "E1 and F1",       "hdzE1F1",   &cfg.hdzE1F1,       0,   1,  1,  1, 1, 0, "",     "Include E1 and F1 (not on every product page)" },
   { "IMD-Free Channels", "Min spacing",     "imdSep",    &cfg.imdMinSep,    20,  80,  1, 37, 0, 0, " MHz", "Smallest gap allowed between channels in a set" },
   { "IMD-Free Channels", "Use L band",      "imdLow",    &cfg.imdLowBand,    0,   1,  1,  0, 1, 0, "",     "Allow L1-L8 (HDZero mode: HDZero settings)" },
+  { "User Interface", "Long press",    "longPress",  &cfg.longPressMs,   300, 2000,  100,  700, 0, 0, " ms", "ENTER held this long = long press" },
+  { "User Interface", "Config hold",   "cfgHold",    &cfg.configHoldMs, 2000, 10000, 1000, 5000, 0, 0, " ms", "Left + Right held this long opens Configuration" },
+  { "User Interface", "Splash time",   "splashMs",   &cfg.splashMs,        0, 10000,  500, 5000, 0, 0, " ms", "How long the start-up splash shows (0 = none)" },
+  { "User Interface", "Splash combo",  "splashCmb",  &cfg.splashComboMs,  20,   500,   10,   80, 0, 0, " ms", "Left + Right held this long on splash = Config" },
+  { "User Interface", "Pop-up time",   "popupMs",    &cfg.popupMs,       500,  5000,  250, 1500, 0, 0, " ms", "How long the Wait pop-up stays up" },
+  { "User Interface", "Scan dot step", "scanDot",    &cfg.scanDotMs,     100,  1000,   50,  400, 0, 0, " ms", "Speed of the Scanning dots" },
+  { "User Interface", "IMD refresh",   "imdRefresh", &cfg.imdRefreshS,     2,    60,    1,   10, 0, 0, " s",  "How often IMD-free sets are re-picked" },
+  { "User Interface", "Move fade",     "moveFade",   &cfg.moveFadeMs,      0, 10000,  250, 3000, 0, 0, " ms", "Red fade on a moved channel (0 = off)" },
   { "General", "Backlight",       "backlight", &cfg.backlight,    10, 100, 10,100, 0, 0, "%",    "LCD brightness" },
 };
 const int NUM_SETTINGS = sizeof(SETTINGS) / sizeof(SETTINGS[0]);

@@ -65,11 +65,11 @@ Each source file's header carries the revision number; see `CHANGELOG.md`
 for what changed in each revision.
 
 ## Screens
-Pages in KEY_R order: Activity -> Spectrum -> Noise -> Quietest -> HDZero -> IMD-Free ->
-Activity. KEY_L goes back: Activity -> Noise -> Spectrum -> Activity, and
-IMD-Free -> HDZero -> Quietest -> Noise. The HDZero page exists only in HDZero mode (see
-below); otherwise KEY_R from Quietest goes straight to IMD-Free. Quietest Channels is only reached with KEY_R from Channel Noise, and
-only once there are 60 s of noise history; before that a "Wait >60s"
+Pages in KEY_R order: Activity -> Spectrum -> Noise -> Quietest (or Quietest for HDZero)
+-> IMD-Free -> Activity. KEY_L goes back: Activity -> Noise -> Spectrum -> Activity, and
+IMD-Free -> Quietest (or Quietest for HDZero) -> Noise. In HDZero mode (see below) the Quietest for
+HDZero page replaces Quietest Channels; otherwise only Quietest Channels is shown. Quietest Channels is only reached with KEY_R from Channel Noise, and
+only once there are 60 s of noise history; before that a "Wait NNs"
 pop-up shows and the page stays put.
 - **FPV Channel Activity** (grid): all 48 channels; square brightness = power
   above the noise floor right now. In HDZero mode, channels an HDZero VTX can
@@ -98,7 +98,8 @@ pop-up shows and the page stays put.
 - **Quietest for HDZero**: the same list, limited to channels an HDZero VTX
   can be set to: R1-R8, E1, F1, F2, F4, and L1-L8 once low band is unlocked
   on the VTX ([HDZero VTX docs](https://docs.hd-zero.com/vtx-general)).
-  Reached with KEY_R from Quietest Channels, in HDZero mode only.
+  HDZero mode only, where it replaces Quietest Channels (reached with KEY_R
+  from Channel Noise, after the same wait for history).
 
 - **IMD-Free Channels**: four columns, for 3, 4, 5 and 6 pilots, each
   listing the channel set (band / channel only) with the least
@@ -129,15 +130,17 @@ bar, then a Save / Discard page:
 | FPV Channel Activity | Span (dB), learn sweeps, samples per channel |
 | Spectrum | Step (MHz), samples per point, peak decay |
 | FPV Channel Noise | Busy level (dB), shading gamma, full-red spread (dB) |
-| Quietest Channels | Minimum history before the list opens (s) |
+| Quietest Channels | Minimum history before the list opens (s); L Band Limit (1-8): most L-band channels in the Quietest lists and in each IMD-free set (8 = no limit) |
 | Quietest for HDZero | HDZero features, low band L1-L8, E1 and F1 |
 | IMD-Free Channels | Min spacing (MHz), use L band |
+| User Interface | Long press, Configuration hold, splash time, splash combo, pop-up time, scanning-dot step (ms); IMD refresh (s); moved-channel fade (ms, 0 = off) |
 | General | Backlight (%) |
 
 - **KEY_L / KEY_R**: move up / down the list (past the end of a page goes to
   the next or previous page).
 - **ENTER**: flip an On/Off setting, or start editing a number. While
   editing, KEY_L / KEY_R step it down / up (hold to repeat) and ENTER sets it.
+- **Hold ENTER**: jump straight to the Save / Discard page.
 - **Save and restart** writes everything to flash; **Discard and restart**
   forgets the changes; **Reset to defaults** loads the defaults (then Save).
 
@@ -206,30 +209,31 @@ Configuration menu pages, then the scanner pages in Right-button order.
 <td align="center"><img src="docs/screenshots/08%20Configuration%20-%20IMD-Free%20Channels.png" width="320" alt="Configuration: IMD-Free Channels"><br>Configuration: IMD-Free Channels</td>
 </tr>
 <tr>
-<td align="center"><img src="docs/screenshots/09%20Configuration%20-%20General.png" width="320" alt="Configuration: General"><br>Configuration: General</td>
-<td align="center"><img src="docs/screenshots/10%20Configuration%20-%20Save%20-%20Discard.png" width="320" alt="Configuration: Save / Discard"><br>Configuration: Save / Discard</td>
+<td align="center"><img src="docs/screenshots/09%20Configuration%20-%20User%20Interface.png" width="320" alt="Configuration: User Interface"><br>Configuration: User Interface</td>
+<td align="center"><img src="docs/screenshots/10%20Configuration%20-%20General.png" width="320" alt="Configuration: General"><br>Configuration: General</td>
 </tr>
 <tr>
-<td align="center"><img src="docs/screenshots/11%20Configuration%20-%20editing%20a%20value.png" width="320" alt="Configuration: editing a value"><br>Configuration: editing a value</td>
-<td align="center"><img src="docs/screenshots/12%20FPV%20Channel%20Activity.png" width="320" alt="FPV Channel Activity"><br>FPV Channel Activity</td>
+<td align="center"><img src="docs/screenshots/11%20Configuration%20-%20Save%20-%20Discard.png" width="320" alt="Configuration: Save / Discard"><br>Configuration: Save / Discard</td>
+<td align="center"><img src="docs/screenshots/12%20Configuration%20-%20editing%20a%20value.png" width="320" alt="Configuration: editing a value"><br>Configuration: editing a value</td>
 </tr>
 <tr>
-<td align="center"><img src="docs/screenshots/13%20FPV%20Channel%20Activity%20%28HDZero%20mode%29.png" width="320" alt="FPV Channel Activity, HDZero mode"><br>FPV Channel Activity, HDZero mode</td>
-<td align="center"><img src="docs/screenshots/14%20Spectrum%20%28Raceband%29.png" width="320" alt="Spectrum (Raceband) with waterfall"><br>Spectrum (Raceband) with waterfall</td>
+<td align="center"><img src="docs/screenshots/13%20FPV%20Channel%20Activity.png" width="320" alt="FPV Channel Activity"><br>FPV Channel Activity</td>
+<td align="center"><img src="docs/screenshots/14%20FPV%20Channel%20Activity%20%28HDZero%20mode%29.png" width="320" alt="FPV Channel Activity, HDZero mode"><br>FPV Channel Activity, HDZero mode</td>
 </tr>
 <tr>
-<td align="center"><img src="docs/screenshots/15%20FPV%20Channel%20Noise.png" width="320" alt="FPV Channel Noise"><br>FPV Channel Noise</td>
-<td align="center"><img src="docs/screenshots/16%20FPV%20Channel%20Noise%20%28HDZero%20mode%29.png" width="320" alt="FPV Channel Noise, HDZero mode"><br>FPV Channel Noise, HDZero mode</td>
+<td align="center"><img src="docs/screenshots/15%20Spectrum%20%28Raceband%29.png" width="320" alt="Spectrum (Raceband) with waterfall"><br>Spectrum (Raceband) with waterfall</td>
+<td align="center"><img src="docs/screenshots/16%20FPV%20Channel%20Noise.png" width="320" alt="FPV Channel Noise"><br>FPV Channel Noise</td>
 </tr>
 <tr>
-<td align="center"><img src="docs/screenshots/17%20FPV%20Channel%20Noise%20with%20Wait%20popup.png" width="320" alt="Wait &gt;60s pop-up (Quietest not ready)"><br>Wait &gt;60s pop-up (Quietest not ready)</td>
-<td align="center"><img src="docs/screenshots/18%20Quietest%20Channels.png" width="320" alt="Quietest Channels"><br>Quietest Channels</td>
+<td align="center"><img src="docs/screenshots/17%20FPV%20Channel%20Noise%20%28HDZero%20mode%29.png" width="320" alt="FPV Channel Noise, HDZero mode"><br>FPV Channel Noise, HDZero mode</td>
+<td align="center"><img src="docs/screenshots/18%20FPV%20Channel%20Noise%20with%20Wait%20popup.png" width="320" alt="Wait pop-up (Quietest not ready)"><br>Wait pop-up (Quietest not ready)</td>
 </tr>
 <tr>
-<td align="center"><img src="docs/screenshots/19%20Quietest%20for%20HDZero.png" width="320" alt="Quietest for HDZero"><br>Quietest for HDZero</td>
-<td align="center"><img src="docs/screenshots/20%20IMD-Free%20Channels.png" width="320" alt="IMD-Free Channels"><br>IMD-Free Channels</td>
+<td align="center"><img src="docs/screenshots/19%20Quietest%20Channels.png" width="320" alt="Quietest Channels"><br>Quietest Channels</td>
+<td align="center"><img src="docs/screenshots/20%20Quietest%20for%20HDZero.png" width="320" alt="Quietest for HDZero"><br>Quietest for HDZero</td>
 </tr>
 <tr>
-<td align="center"><img src="docs/screenshots/21%20IMD-Free%20Channels%20%28HDZero%20mode%29.png" width="320" alt="IMD-Free Channels, HDZero mode"><br>IMD-Free Channels, HDZero mode</td>
+<td align="center"><img src="docs/screenshots/21%20IMD-Free%20Channels.png" width="320" alt="IMD-Free Channels"><br>IMD-Free Channels</td>
+<td align="center"><img src="docs/screenshots/22%20IMD-Free%20Channels%20%28HDZero%20mode%29.png" width="320" alt="IMD-Free Channels, HDZero mode"><br>IMD-Free Channels, HDZero mode</td>
 </tr>
 </table>

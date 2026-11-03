@@ -1,12 +1,16 @@
 /*
  * FPV Channel Scanner - Config.h
- * Revision: 63
+ * Revision: 71
  *
  * Hardware pins, tuning constants, shared types, frequency table, colors
  * and the undocumented ESP32-C5 radio access used by the scanner.
  */
 
 #pragma once
+
+// Firmware revision shown on the Save / Discard page. Keep it equal to the
+// "Revision:" line in the file headers.
+#define FW_REVISION 71
 
 #include <Arduino.h>
 #include <SPI.h>
@@ -46,6 +50,16 @@ struct Settings {
   int backlight;     // LCD backlight, %
   int imdMinSep;     // IMD-free page: smallest gap allowed between two channels, MHz
   int imdLowBand;    // IMD-free page: may use L1-L8 (outside HDZero mode)
+  // User Interface page (timings)
+  int longPressMs;   // ENTER held this long = long press
+  int configHoldMs;  // KEY_L + KEY_R held this long opens Configuration
+  int splashMs;      // start-up splash time
+  int splashComboMs; // KEY_L + KEY_R held this long on the splash = Configuration
+  int popupMs;       // how long the "Wait >60s" pop-up stays up
+  int scanDotMs;     // "Scanning" dot animation step
+  int imdRefreshS;   // IMD-free page: re-pick sets this often (s)
+  int moveFadeMs;    // Quietest / IMD pages: moved-channel red fade time (0 = off)
+  int lBandLimit;    // most L-band channels in a Quietest list or an IMD-free set (8 = no limit)
 };
 
 // One line in the Configuration menu (Settings.cpp)
@@ -93,10 +107,10 @@ struct ButtonState {
 #define LCD_SPI_HZ 40000000
 
 // ---------------------------------------------------------------- tuning knobs
-#define LONG_PRESS_MS     700
-#define CONFIG_HOLD_MS    5000    // hold KEY_L + KEY_R this long to open the Configuration menu
-#define SPLASH_MS         5000    // start-up splash screen time
-#define SPLASH_COMBO_MS   80      // KEY_L + KEY_R held this long on the splash = Configuration
+#define LONG_PRESS_MS ((uint32_t)cfg.longPressMs)  // ENTER held this long = long press (User Interface page)
+#define CONFIG_HOLD_MS ((uint32_t)cfg.configHoldMs)  // hold KEY_L + KEY_R this long to open the Configuration menu (User Interface page)
+#define SPLASH_MS ((uint32_t)cfg.splashMs)  // start-up splash screen time (User Interface page)
+#define SPLASH_COMBO_MS ((uint32_t)cfg.splashComboMs)  // KEY_L + KEY_R held this long on the splash = Configuration (User Interface page)
 
 // The values below come from cfg (Settings.cpp), so they can be changed in
 // the Configuration menu. Defaults are in the settings table.
@@ -108,7 +122,7 @@ struct ButtonState {
 #define ACT_MIN_SCALE_DB  (cfg.redSpread10 / 10.0f) // quietest-to-busiest spread needed for full red (dB)
 #define QUIET_LIST_N      16      // channels listed on the QUIETEST CHANNELS page
 #define QUIET_MIN_HISTORY_S (cfg.quietMinS)        // noise history needed before Quietest can open
-#define POPUP_MS          1500    // how long the "Wait >60s" pop-up stays up
+#define POPUP_MS ((uint32_t)cfg.popupMs)  // how long the "Wait >60s" pop-up stays up (User Interface page)
 #define POPUP_W           220     // pop-up box, centred horizontally
 #define POPUP_H           56
 #define POPUP_X           ((LCD_W - POPUP_W) / 2)
@@ -209,7 +223,7 @@ static const RGB C_HDZ   = {  40, 120, 255 };  // outline: channel an HDZero VTX
 
 // ---------------------------------------------------------------- layout / UI constants
 // (moved here from the page code when the sketch was split into files)
-#define SCAN_DOT_MS 400                // dot animation step
+#define SCAN_DOT_MS ((uint32_t)cfg.scanDotMs)  // dot animation step (User Interface page)
 #define LEARN_BAR_W 240
 #define QUIET_Y0     34      // first row
 #define QUIET_PITCH  31      // row spacing
@@ -224,5 +238,5 @@ static const RGB C_HDZ   = {  40, 120, 255 };  // outline: channel an HDZero VTX
 #define IMD_PITCH    30      // channel row spacing (scale-3 text)
 #define IMD_SCORE_Y  (IMD_Y0 + IMD_MAX_N * IMD_PITCH + 2)   // "IMD 100" under each column
 #define IMD_NEAR_MHZ 35      // an IMD product this close to a channel in use hurts it
-#define IMD_REFRESH_MS 10000 // re-pick with the latest noise history this often
-#define MOVE_FADE_MS 3000    // Quietest / IMD pages: a channel that moves shows red, fading back over this
+#define IMD_REFRESH_MS ((uint32_t)cfg.imdRefreshS * 1000u)  // re-pick with the latest noise history this often (User Interface page)
+#define MOVE_FADE_MS ((uint32_t)cfg.moveFadeMs)  // Quietest / IMD pages: a channel that moves shows red, fading back over this (User Interface page)

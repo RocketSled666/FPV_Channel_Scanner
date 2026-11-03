@@ -2,6 +2,60 @@
 
 Revision numbers match the `Revision:` line in the source headers.
 
+## Revision 71
+- L Band Limit now ranges 1-8; 0 is gone, since turning L band off is what
+  "Use L band" (IMD-Free) and "Low band L1-L8" (HDZero) are for. A saved 0
+  loads as 1.
+
+## Revision 70
+- New "L Band Limit" setting (0-8, default 8 = no limit) on the Quietest
+  Channels Configuration page: the most L-band channels allowed in the
+  Quietest Channels and Quietest for HDZero lists (further L channels are
+  skipped and the next quietest non-L channels fill the list) and in each
+  IMD-Free set (3, 4, 5 and 6 pilots each separately).
+
+## Revision 69
+- The pop-up shown when Quietest can't open yet now gives the time still to
+  wait, e.g. "Wait 23s", instead of "Wait >60s".
+
+## Revision 68
+- New splash screen picture: Splash.PNG replaced with the new 320 x 320
+  artwork and "Splash Image.h" regenerated from it with
+  tools/Make Splash Header.py.
+
+## Revision 67
+- New "User Interface" Configuration page (between IMD-Free Channels and
+  General) for timings that were compile-time constants, all kept in flash:
+  Long press (700 ms), Config hold (5000 ms), Splash time (5000 ms, 0 = no
+  splash), Splash combo (80 ms), Pop-up time (1500 ms), Scan dot step
+  (400 ms), IMD refresh (10 s) and Move fade (3000 ms, 0 = off). The page has
+  8 settings, so its rows are closer together (24 px instead of 30).
+- The splash hint and the Help page now show the configured hold times
+  ("hold for >5s", "Hold ENTER 0.7s") instead of fixed text.
+- In the Configuration menu, holding ENTER for the long-press time jumps to
+  the Save / Discard page (with "Save and restart" selected). A short ENTER
+  press now acts on release. Help page lists "Hold ENTER: go to Save /
+  Discard".
+
+## Revision 66
+- Save / Discard page: the "Revision / Built" line is now on the very bottom
+  line of the screen, in a darker grey, with two blank lines between it and
+  "Changes apply after Save and restart". The footer on that page sits
+  16 px higher to make room.
+
+## Revision 65
+- The Save / Discard page in Configuration shows "Revision 65   Built
+  YYYY-MM-DD HH:MM:SS" above the help line. The revision comes from the new
+  FW_REVISION in Config.h (keep it equal to the header "Revision:" lines);
+  the date and time are when Config Menu.cpp was compiled.
+
+## Revision 64
+- HDZero mode shows only the Quietest for HDZero list: it replaces Quietest
+  Channels in the page order (KEY_R: ... Noise -> Quietest for HDZero ->
+  IMD-Free -> Activity), with the same "Wait >60s" check for history. With
+  HDZero mode off, only Quietest Channels is shown, as before. Help page
+  page order follows the mode.
+
 ## Revision 63
 - Page order: Quietest for HDZero now comes before IMD-Free Channels.
   KEY_R: ... Noise -> Quietest -> Quietest for HDZero (HDZero mode) ->
