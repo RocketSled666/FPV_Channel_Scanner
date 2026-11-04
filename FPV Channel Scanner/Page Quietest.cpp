@@ -1,6 +1,6 @@
 /*
  * FPV Channel Scanner - Page Quietest.cpp
- * Revision: 79
+ * Revision: 87
  *
  * Quietest Channels and Quietest for HDZero pages: the QUIET_LIST_N
  * quietest channels from the Channel Noise history, in two columns of 8:
@@ -63,6 +63,7 @@ static void imdBuildCandidates(bool useNoise) {
   for (int p = 0; p < NUM_BANDS; p++) {
     int b = PREF[p];
     for (int c = 0; c < NUM_CH; c++) {
+      if (chanNoData(b, c)) continue;                          // this board can't measure it
       if (cfg.hdzero) { if (!hdzeroOk(b, c)) continue; }
       else if (BAND_NAME[b] == 'L' && !cfg.imdLowBand) continue;
       uint16_t f = FPV_MHZ[b][c];
@@ -346,6 +347,7 @@ void quietDraw(bool learning, uint32_t learnStart) {
   for (int i = 0; i < NUM_BANDS * NUM_CH; i++) {
     int k = order[i];
     if (mode == MODE_HDZERO && !hdzeroOk(k / NUM_CH, k % NUM_CH)) continue;
+    if (chanNoData(k / NUM_CH, k % NUM_CH)) continue;          // this board can't measure it
     if (BAND_NAME[k / NUM_CH] == 'L') { if (nL >= cfg.lBandLimit) continue; nL++; }
     list[nList++] = k;
   }

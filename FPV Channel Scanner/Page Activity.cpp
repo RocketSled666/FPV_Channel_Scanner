@@ -1,6 +1,6 @@
 /*
  * FPV Channel Scanner - Page Activity.cpp
- * Revision: 79
+ * Revision: 87
  *
  * FPV Channel Activity page (the live grid) and the grid sweep that
  * also feeds the Channel Noise and Quietest Channels pages.
@@ -32,6 +32,7 @@ void gridDrawCell(int b, int c, int level, bool peak) {
   if (!gridShown(b, c)) return;                     // HDZero mode: blank where HDZero can't tune
   int x = GRID_X + c * (CELL_W + CELL_GAP);
   int y = GRID_Y + bandRow[b] * (CELL_H + CELL_GAP);
+  if (level == -2) { drawNoDataBox(x, y, b, c); return; }   // channel can't be measured
   RGB col = scaleColor(C_HOT, 0.06f + 0.94f * level / 32.0f);
   drawGridBox(x, y, col, peak);
   char f[6];
@@ -65,11 +66,16 @@ void gridSweep() {
   const int  total = NUM_BANDS * NUM_CH;
 
   float raw[NUM_BANDS][NUM_CH];
-  bool  fb[NUM_BANDS][NUM_CH];
+  bool  fb[NUM_BANDS][NUM_CH], held[NUM_BANDS][NUM_CH];
   for (int b = 0; b < NUM_BANDS; b++)
     for (int c = 0; c < NUM_CH; c++) {
-      raw[b][c] = readFreqDb(FPV_MHZ[b][c], GRID_SAMPLES, SETTLE_US);
-      fb[b][c] = g_lastReadFallback;
+      if (mhzBlocked(FPV_MHZ[b][c])) {          // above "Max MHz": not measured, no data
+        raw[b][c] = NAN; fb[b][c] = held[b][c] = true;
+      } else {
+        raw[b][c] = readFreqDb(FPV_MHZ[b][c], GRID_SAMPLES, SETTLE_US);
+        fb[b][c] = g_lastReadFallback;
+        held[b][c] = g_lastReadHeld;
+      }
       if (evToggle || evEnterShort || evEnterLong || evConfig) return;  // react to input immediately
       if (learningSweep && c == NUM_CH - 1) {
         int done = (gridSweeps - learnStart) * total + b * NUM_CH + c + 1;
@@ -81,12 +87,17 @@ void gridSweep() {
   bool learning = gridSweeps <= gridLearnUntil;
   for (int b = 0; b < NUM_BANDS; b++)
     for (int c = 0; c < NUM_CH; c++) {
+      float &hf = gridHeldFrac[b][c];
+      hf += 0.1f * ((held[b][c] ? 1.0f : 0.0f) - hf);              // ~10 sweeps
+      if (hf > NODATA_ON_FRAC) gridNoData[b][c] = true;            // hysteresis: no flicker
+      else if (hf < NODATA_OFF_FRAC) gridNoData[b][c] = false;
       float v = raw[b][c];
       if (isnan(v)) continue;
       float &s = gridSmooth[b][c];
       if (isnan(s)) s = v;
       else s += (v > s ? 0.7f : 0.25f) * (v - s);
-      if (fb[b][c]) continue;                // fallback readings never set the floor
+      if (held[b][c]) { raw[b][c] = NAN; continue; } // held: no floor, no noise history
+      if (fb[b][c]) continue;                         // calibrated RSSI: noise history, but no floor
       float &f = gridFloor[b][c];
       if (f == 0 || v < f) f = v;            // track the minimum
       else if (!learning) f += 0.01f;        // slow upward drift
@@ -112,7 +123,7 @@ void gridSweep() {
   int pb = -1, pc = -1; float best = -1e9f;
   for (int b = 0; b < NUM_BANDS; b++)
     for (int c = 0; c < NUM_CH; c++) {
-      if (!gridShown(b, c)) continue;              // peak only among drawn boxes
+      if (!gridShown(b, c) || chanNoData(b, c)) continue;   // peak only among live drawn boxes
       float above = gridSmooth[b][c] - gridFloor[b][c];
       if (isnan(above) || gridFloor[b][c] == 0) above = 0;
       if (above > best) { best = above; pb = b; pc = c; }
@@ -124,6 +135,7 @@ void gridSweep() {
       float above = learning ? 0 : gridSmooth[b][c] - gridFloor[b][c];
       if (isnan(above) || gridFloor[b][c] == 0) above = 0;
       int level = constrain((int)lroundf(above * 32.0f / cfg.span), 0, 32);
+      if (chanNoData(b, c)) level = -2;            // no live data: "--"
       bool peak = havePeak && b == pb && c == pc;
       if (level != gridShownLevel[b][c] || peak != gridShownPeak[b][c]) {
         gridDrawCell(b, c, level, peak);
@@ -159,6 +171,7 @@ void gridSweep() {
     if ((mode == MODE_ACTIVITY || quietPage()) && !learning) drawSpanLabel();   // history time
     if (serialHasRoom(1600)) {
       printTiming(sweepsThisPeriod);
+      printRssiStats();
       printStalls();
       Serial.printf("grid sweep %lu  %.1f/s  timeouts=%lu\n", (unsigned long)gridSweeps,
                     sps, (unsigned long)g_nfTimeouts);

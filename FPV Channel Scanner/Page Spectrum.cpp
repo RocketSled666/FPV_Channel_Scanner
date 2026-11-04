@@ -1,6 +1,6 @@
 /*
  * FPV Channel Scanner - Page Spectrum.cpp
- * Revision: 79
+ * Revision: 87
  *
  * Spectrum page: continuous sweep across one band in SPEC_STEP_MHZ
  * steps, with channel markers, values and band buttons. The sweep point
@@ -19,6 +19,7 @@ static uint8_t wfLevel[WF_H][GW];   // 0..WF_LEVELS-1 per column, ring buffer of
 static int     wfHead = 0;          // row index of the newest sweep
 static int     wfRows = 0;          // sweeps stored so far (0..WF_H)
 #define WF_LEVELS 64
+#define WF_BLOCKED 255                  // column above "Max MHz": drawn grey
 static uint8_t wfLut[WF_LEVELS][3];
 
 // Colour ramp: dark blue -> purple -> orange -> bright yellow.
@@ -54,11 +55,46 @@ static void wfDraw() {
   for (int r = 0; r < wfRows; r++) {
     const uint8_t *lv = wfLevel[(wfHead - r + WF_H) % WF_H];
     for (int x = 0; x < GW; x++) {
-      const uint8_t *c = wfLut[lv[x]];
+      static const uint8_t grey[3] = { C_BLOCKED.r, C_BLOCKED.g, C_BLOCKED.b };
+      const uint8_t *c = lv[x] == WF_BLOCKED ? grey : wfLut[lv[x]];
       row[x * 3] = c[0]; row[x * 3 + 1] = c[1]; row[x * 3 + 2] = c[2];
     }
     lcdDrawRgbRow(GX, WF_Y + r, GW, row);
   }
+}
+
+// Auto range: the graph's top (dB above floor). At least the Span setting;
+// grows at once to fit the highest point (rounded up to SPEC_RANGE_STEP), and
+// after SPEC_RANGE_HOLD_MS without needing that much, shrinks one step at a
+// time. The waterfall keeps the fixed Span so its colours stay comparable.
+static int      specRange = 0;
+static uint32_t specRangeNeedMs = 0;
+
+static void specDrawAxis() {
+  char s[8];
+  lcdFill(0, GY, GX - 2, GH, 0, 0, 0);
+  snprintf(s, sizeof(s), "%d", specRange);            lcdText(2, GY, s, 1, C_DIM, C_BG);
+  snprintf(s, sizeof(s), "%d", (specRange + 1) / 2);  lcdText(2, GY + GH / 2 - 4, s, 1, C_DIM, C_BG);
+  lcdText(2, GY + GH - 8, "0", 1, C_DIM, C_BG);
+  lcdText(2, GY + GH - 18, "dB", 1, C_DIM, C_BG);
+}
+
+// Pick the range for this sweep from its highest point. Returns true if it
+// changed (the axis is redrawn and peak-hold dots rescaled; columns redraw
+// themselves because their heights change).
+static bool specUpdateRange(float maxAbove) {
+  int need = cfg.span;
+  if (maxAbove > need) need = min(SPEC_RANGE_MAX, ((int)ceilf(maxAbove / SPEC_RANGE_STEP)) * SPEC_RANGE_STEP);
+  uint32_t now = millis();
+  int old = specRange;
+  if (need >= specRange) { specRange = need; specRangeNeedMs = now; }
+  else if (now - specRangeNeedMs >= SPEC_RANGE_HOLD_MS) {
+    specRange = max(need, specRange - SPEC_RANGE_STEP); specRangeNeedMs = now;
+  }
+  if (specRange == old) return false;
+  for (int x = 0; x < GW; x++) colPeak[x] = colPeak[x] * old / specRange;
+  specDrawAxis();
+  return true;
 }
 
 int freqToCol(float mhz) {
@@ -139,12 +175,9 @@ void specDrawStatic() {
   snprintf(t, sizeof(t), "%u-%u MHz", specLo, specHi);
   lcdText(4, 14, t, 1, C_DIM, C_BG);
 
-  // y axis labels (dB above floor)
-  char s[8];
-  snprintf(s, sizeof(s), "%d", cfg.span);       lcdText(2, GY, s, 1, C_DIM, C_BG);
-  snprintf(s, sizeof(s), "%d", (cfg.span + 1) / 2);   lcdText(2, GY + GH / 2 - 4, s, 1, C_DIM, C_BG);
-  lcdText(2, GY + GH - 8, "0", 1, C_DIM, C_BG);
-  lcdText(2, GY + GH - 18, "dB", 1, C_DIM, C_BG);
+  // y axis labels (dB above floor, auto range)
+  if (specRange < cfg.span) { specRange = cfg.span; specRangeNeedMs = millis(); }
+  specDrawAxis();
 
   // graph frame
   lcdFillC(GX - 1, GY - 1, GW + 2, 1, C_DIM);
@@ -174,6 +207,13 @@ void specDrawStatic() {
   learnShownPct = -1; scanAnimY = -1;
 }
 
+// Column above "Max MHz": plain grey, nothing measured.
+static void specDrawBlockedColumn(int x) {
+  if (colShownH[x] == -3) return;
+  lcdFillC(GX + x, GY, 1, GH, C_BLOCKED);
+  colShownH[x] = -3; colShownPk[x] = -3;
+}
+
 void specDrawColumn(int x, int h, int pk) {
   if (h == colShownH[x] && pk == colShownPk[x]) return;
   int sx = GX + x;
@@ -190,6 +230,7 @@ void specDrawColumn(int x, int h, int pk) {
 void specDrawChannelValues(const float *flo) {
   int val[NUM_CH]; int best = -1, bestV = 2;
   for (int c = 0; c < NUM_CH; c++) {
+    if (mhzBlocked(FPV_MHZ[specBand][c])) { val[c] = -3; continue; }   // above "Max MHz": "--"
     int i = specChPt[c];
     float a = (isnan(specSmooth[i]) || flo[i] == 0) ? 0 : specSmooth[i] - flo[i];
     int v = (int)lroundf(a);
@@ -205,6 +246,8 @@ void specDrawChannelValues(const float *flo) {
       char s[4]; snprintf(s, sizeof(s), "%d", val[c]);
       int w = 6 * (int)strlen(s);
       lcdText(constrain(x - w / 2, 0, LCD_W - w), CH_VAL_Y, s, 1, hot ? C_ACC : C_TEXT, C_BG);
+    } else if (val[c] == -3) {
+      lcdText(constrain(x - 6, 0, LCD_W - 12), CH_VAL_Y, "--", 1, RGB{ 90, 90, 90 }, C_BG);
     }
     chValShown[c] = (int8_t)val[c]; chValHot[c] = hot;
   }
@@ -245,8 +288,11 @@ void specSweep() {
   float raw[SPEC_MAX_PTS];
   bool  fb[SPEC_MAX_PTS];
   for (int i = 0; i < specPts; i++) {
-    raw[i] = readFreqDb(specMhz[i], SPEC_SAMPLES, SETTLE_US);
-    fb[i] = g_lastReadFallback;
+    if (mhzBlocked(specMhz[i])) { raw[i] = NAN; fb[i] = true; }   // above "Max MHz": not measured
+    else {
+      raw[i] = readFreqDb(specMhz[i], SPEC_SAMPLES, SETTLE_US);
+      fb[i] = g_lastReadFallback;
+    }
     if (evToggle || evEnterShort || evEnterLong || evConfig) return;  // react to input immediately
     if (learningSweep && (i % 8 == 7 || i == specPts - 1)) {
       int done = (specSweeps - learnStart) * specPts + i + 1;
@@ -282,8 +328,17 @@ void specSweep() {
   wfHead = (wfHead + 1) % WF_H;             // this sweep's waterfall row
   if (wfRows < WF_H) wfRows++;
   uint8_t *wfNew = wfLevel[wfHead];
+  { float mx = 0;                            // highest point decides the range
+    for (int i = 0; i < specPts; i++)
+      if (!isnan(specSmooth[i]) && flo[i] != 0) mx = max(mx, specSmooth[i] - flo[i]);
+    specUpdateRange(mx); }
   for (int x = 0; x < GW; x++) {
     float f = specLo + x * (float)(specHi - specLo) / (GW - 1);
+    if (mhzBlocked(f)) {                    // above "Max MHz": grey, never the peak
+      colPeak[x] = 0; wfLevel[wfHead][x] = WF_BLOCKED;
+      specDrawBlockedColumn(x);
+      continue;
+    }
     while (seg < specPts - 2 && specMhz[seg + 1] < f) seg++;
     int i0 = seg, i1 = min(seg + 1, specPts - 1);
     float span = (float)(specMhz[i1] - specMhz[i0]);
@@ -292,7 +347,7 @@ void specSweep() {
     float a1 = (isnan(specSmooth[i1]) || flo[i1] == 0) ? 0 : specSmooth[i1] - flo[i1];
     float above = a0 + (a1 - a0) * t;     // trace is drawn even while learning
     if (above > bestAbove) { bestAbove = above; bestMhz = f; }
-    int h = constrain((int)lroundf(above * GH / cfg.span), 0, GH);
+    int h = constrain((int)lroundf(above * GH / specRange), 0, GH);
     // Waterfall colour: 0..1 of the span, through a log curve set by
     // "Waterfall log" (0 = linear; higher lifts weak signals).
     float wx = constrain(above / cfg.span, 0.0f, 1.0f);
@@ -337,6 +392,7 @@ void specSweep() {
       Serial.printf("spectrum %c %u-%u MHz, %d pts, %.1f sweeps/s, peak %.0f MHz %.1f dB\n",
                     BAND_NAME[specBand], specLo, specHi, specPts, sps, bestMhz, bestAbove);
       printTiming(sweepsThisPeriod);
+      printRssiStats();
       printStalls();
     } else {
       resetTiming();

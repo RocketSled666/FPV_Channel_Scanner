@@ -1,6 +1,6 @@
 /*
  * FPV Channel Scanner - Screen Common.cpp
- * Revision: 79
+ * Revision: 87
  *
  * Drawing shared by several pages (grid frame, Scanning dots, span /
  * history label, learning progress, title status), the pop-up, and
@@ -95,6 +95,17 @@ void drawGridBox(int x, int y, RGB fill, bool highlight) {
   int in = 0;
   if (highlight) { lcdFillC(x, y, CELL_W, CELL_H, C_PEAKH); in = 2; }
   lcdFillC(x + in, y + in, CELL_W - 2 * in, CELL_H - 2 * in, fill);
+}
+
+// Grid box for a channel this board can't measure (chanNoData): dark,
+// "--" in the middle, frequency in dim grey.
+void drawNoDataBox(int x, int y, int b, int c) {
+  const RGB fill = { 18, 18, 18 };
+  drawGridBox(x, y, fill, false);
+  lcdText(x + (CELL_W - 24) / 2, y + 8, "--", 2, RGB{ 90, 90, 90 }, fill);
+  char f[6];
+  snprintf(f, sizeof(f), "%u", FPV_MHZ[b][c]);
+  lcdText(x + (CELL_W - 24) / 2, y + CELL_H - 12, f, 1, RGB{ 70, 70, 70 }, fill);
 }
 
 // Page reached from page m by KEY_R (dir +1) or KEY_L (dir -1).

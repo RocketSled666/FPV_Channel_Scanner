@@ -1,6 +1,6 @@
 /*
  * FPV Channel Scanner - State.cpp
- * Revision: 79
+ * Revision: 87
  *
  * Definitions of all global state shared between the pages.
  */
@@ -10,7 +10,10 @@
 uint32_t g_nfTimeouts = 0;
 StallStat g_stalls[MAX_STALL_STATS];
 int       g_nStalls = 0;
-bool      g_lastReadFallback = false;   // last readFreqDb() used the RSSI fallback
+bool      g_lastReadFallback = false;   // last readFreqDb() stalled (calibrated RSSI or held value)
+bool      g_lastReadHeld = false;       // ...and repeated the last good value (no live data)
+float     gridHeldFrac[NUM_BANDS][NUM_CH];   // recent share of held readings per channel (0..1)
+bool      gridNoData[NUM_BANDS][NUM_CH];     // channel currently "no data" (with hysteresis)
 // timing statistics, printed and reset once per second
 uint64_t g_tTuneUs = 0, g_tMeasUs = 0, g_tDrawUs = 0;
 uint32_t g_nTunes = 0, g_nMeas = 0;

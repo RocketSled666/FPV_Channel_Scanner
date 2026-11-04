@@ -1,6 +1,6 @@
 /*
  * FPV Channel Scanner - Config Menu.cpp
- * Revision: 79
+ * Revision: 87
  *
  * Configuration menu, opened by holding KEY_L + KEY_R for CONFIG_HOLD_MS on
  * any page.
@@ -177,7 +177,17 @@ static void drawMenuFooter(int item, bool editing) {
   const int helpY = MENU_HELP_Y - up, hintY = MENU_HINT_Y - up;
   lcdFill(0, helpY - 2, LCD_W, LCD_H - helpY + 2, 0, 0, 0);
   const char *help = isHelp(item)   ? "Settings follow on the next pages"
+                   : (!isAction(item) && measTimeoutLocked(setIdx(item))) ? "Fixed at 12 ms while 802.11p mode is on"
                    : isAction(item) ? ACTION_HELP[actIdx(item)] : SETTINGS[setIdx(item)].help;
+  // Samples rows: add the time per reading, which depends on RSSI only.
+  char sampHelp[56];
+  if (!isHelp(item) && !isAction(item)) {
+    const int *v = SETTINGS[setIdx(item)].value;
+    if (v == &cfg.gridSamples || v == &cfg.specSamples) {
+      snprintf(sampHelp, sizeof(sampHelp), "%s (%s each)", help, cfg.rssiOnly ? "1 ms" : "3.3 ms");
+      help = sampHelp;
+    }
+  }
   lcdText(4, helpY, help, 1, C_DIM, C_BG);
   // Button hints, in three groups: "Left:" at the left edge, "ENTER:" against
   // the right edge and "Right:" centred between them. Left / Right say "Back" /
@@ -351,8 +361,12 @@ void runConfigMenu() {
       } else if (SETTINGS[setIdx(item)].isToggle) {
         int *v = SETTINGS[setIdx(item)].value;
         *v = *v ? 0 : 1;
-        drawMenuRow(item, item - first, true, false);
-        drawMenuHeader(item, saved);
+        // RSSI only reads in whole dB, so it averages 3 samples per channel;
+        // the noise-floor estimator (0.25 dB, 3.3 ms each) is fine with 1.
+        if (v == &cfg.rssiOnly) cfg.gridSamples = *v ? 3 : 1;
+        drawMenuPage(item, false, saved);      // whole page: a toggle can change another row (802.11p -> Meas timeout, RSSI only -> Samples)
+      } else if (measTimeoutLocked(setIdx(item))) {
+        // fixed while 802.11p mode is on: not editable
       } else {
         editing = true;
         drawMenuRow(item, item - first, true, true);

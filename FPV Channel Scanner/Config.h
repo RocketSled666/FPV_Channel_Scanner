@@ -1,6 +1,6 @@
 /*
  * FPV Channel Scanner - Config.h
- * Revision: 79
+ * Revision: 87
  *
  * Hardware pins, tuning constants, shared types, frequency table, colors
  * and the undocumented ESP32-C5 radio access used by the scanner.
@@ -10,7 +10,7 @@
 
 // Firmware revision shown on the Save / Discard page. Keep it equal to the
 // "Revision:" line in the file headers.
-#define FW_REVISION 79
+#define FW_REVISION 87
 
 #include <Arduino.h>
 #include <SPI.h>
@@ -61,6 +61,10 @@ struct Settings {
   int moveFadeMs;    // Quietest / IMD pages: moved-channel red fade time (0 = off)
   int lBandLimit;    // most L-band channels in a Quietest list or an IMD-free set (8 = no limit)
   int wfLogK;        // spectrum waterfall log curve: 0 = linear, higher = weak signals brighter
+  int measTimeoutMs; // give up on a noise-floor measurement after this long (ms)
+  int rssiOnly;      // measure with libphy signal RSSI instead of the noise-floor estimator
+  int mode11p;       // libphy 802.11p mode (reported to help 5750-5990 MHz)
+  int maxMhz;        // frequencies above this aren't measured (MAX_MHZ_OFF = no limit)
 };
 
 // One line in the Configuration menu (Settings.cpp)
@@ -133,7 +137,17 @@ struct ButtonState {
 #define SPEC_SAMPLES      (cfg.specSamples)         // measurements averaged per spectrum point
 #define GRID_SAMPLES      (cfg.gridSamples)         // measurements averaged per grid channel
 #define SETTLE_US         100     // wait after retune before measuring
-#define MEAS_TIMEOUT_US   5000    // a measurement normally takes ~3.2 ms
+#define MEAS_TIMEOUT_11P_MS 12     // 802.11p mode doubles the measurement time (~6.4 ms), so the timeout is fixed at this
+#define MEAS_TIMEOUT_US   ((uint32_t)(cfg.mode11p ? MEAS_TIMEOUT_11P_MS : cfg.measTimeoutMs) * 1000u)  // ~3.3 ms normally ("Meas timeout")
+#define SIG_OK_MIN        -120    // signal RSSI outside this range is ignored
+#define SIG_OK_MAX        -10
+#define SIG_READS         5       // "RSSI only": signal RSSI reads per sample (median: drops a single spike or dip)
+#define SIG_READ_GAP_US   250     // ...this far apart
+#define MAX_MHZ_OFF       6000    // "Max MHz" at this value = no limit (shown as Off)
+#define NODATA_ON_FRAC    0.6f    // a channel becomes "no data" above this share of held readings...
+#define NODATA_OFF_FRAC   0.3f    // ...and has data again below this one
+#define HELD_MHZ_LO       5300    // stalled readings: last good value kept per MHz,
+#define HELD_MHZ_N        700     //   5300-5999 MHz
 #define MAX_STALL_STATS   16
 #define GRID_LEARN_SWEEPS (cfg.learnSweeps)       // sweeps spent learning the noise floor
 #define SPEC_LEARN_SWEEPS (cfg.learnSweeps)
@@ -174,7 +188,15 @@ static const uint16_t FPV_MHZ[NUM_BANDS][NUM_CH] = {
 extern "C" int phy_set_chanfreq(uint32_t chan_or_mhz, uint8_t bw40);
 // Receiver signal strength in dB: noise-floor register / 4 + AGC RSSI field
 // (from disassembly of libphy). Used only when the estimator stalls.
-extern "C" int16_t phy_get_rssi(void);
+// Signal-RSSI mode and 802.11p mode, also undocumented libphy functions
+// (found and bench-tested by the FPVGateC5RX and C5VRX projects). Weak, so
+// the sketch still links if a core's libphy lacks one; radioInit() reports it.
+// phy_get_sigrssi() returns dBm, measured continuously once
+// phy_check_sigrssi_en(1) has been called (phy_get_rssi() only updates when
+// a Wi-Fi packet is received, so it freezes on quiet channels).
+extern "C" void phy_check_sigrssi_en(int enable) __attribute__((weak));
+extern "C" int  phy_get_sigrssi(void) __attribute__((weak));
+extern "C" void phy_11p_set(int enable, int mode) __attribute__((weak));
 
 // Baseband noise-floor estimator (from libphy check_noise_floor()).
 #define BB_NF_CTRL   (*(volatile uint32_t *)0x600A7018)
@@ -200,6 +222,10 @@ extern "C" int16_t phy_get_rssi(void);
 #define GW        286                // graph width  (px)
 #define GH        186                // graph height (px)
 #define WF_H      31                 // waterfall height (px) = sweeps of history
+#define C_BLOCKED  RGB{ 28, 28, 28 }   // spectrum columns above "Max MHz"
+#define SPEC_RANGE_STEP    10        // spectrum auto range: rounded up to this (dB)...
+#define SPEC_RANGE_MAX     100       // ...never above this...
+#define SPEC_RANGE_HOLD_MS 5000      // ...and shrinks one step after this long without needing it
 #define WF_Y      (GY + GH + 3)      // waterfall top, inside its white box under the graph
 #define CH_LBL_Y  (WF_Y + WF_H + 4)  // channel numbers under the waterfall box
 #define CH_VAL_Y  (CH_LBL_Y + 10)    // channel dB values under the numbers

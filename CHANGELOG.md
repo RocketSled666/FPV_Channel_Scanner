@@ -2,6 +2,107 @@
 
 Revision numbers match the `Revision:` line in the source headers.
 
+## Revision 87
+- New "Max MHz" setting (General page; Off by default, or 5800-5995 MHz in
+  5 MHz steps). Frequencies above it aren't measured: grid channels show
+  "--" and are left out of the Noise ranking, Quietest lists and IMD-free
+  sets; on the Spectrum page those columns and waterfall cells are grey,
+  the channel values show "--", and they're ignored for the peak and the
+  graph range. For boards that read junk at the top of the band (one board
+  showed a steady -30 to -40 dBm block from about 5925 MHz up that the
+  other board didn't see); 5915 removes R8, E7 and E8 and keeps E6.
+
+## Revision 86
+- Spectrum graph auto range: the top is at least the span, jumps up at once
+  to fit the highest point (rounded up to 10 dB, max 100), and steps back
+  down 10 dB at a time after 5 s without needing it. Peaks no longer clip:
+  with RSSI only a nearby VTX reads 55-62 dB above the floor, more than the
+  largest span. The axis labels follow the range; peak-hold dots are
+  rescaled when it changes. The waterfall still uses the span.
+
+## Revision 85
+- "RSSI only" is now On by default: bench logs showed live readings on
+  every channel (R8, E7 and E8 included), no timeouts and about 4 grid
+  sweeps/s with 3 samples per channel.
+- Samples/channel default 3 (was 1). Toggling RSSI only in the menu sets it
+  to 1 (Off) or 3 (On); it can still be changed after.
+- Samples/channel and Samples/point help show the time per reading for the
+  current method (1 ms with RSSI only, 3.3 ms without). Meas timeout help
+  says it applies to noise-floor readings.
+
+## Revision 84
+- "Sig RSSI fill" replaced by "RSSI only" (FPV Channel Activity page,
+  default Off; a new settings key, so an old "Sig RSSI fill = On" doesn't
+  carry over). When On, every reading comes from libphy's signal RSSI
+  (phy_check_sigrssi_en(1) + phy_get_sigrssi(), dBm) instead of the
+  noise-floor estimator, which that mode stops on the C5. Each sample is the
+  median of 5 reads 250 us apart; out-of-range reads (outside -120..-10 dBm)
+  are dropped, and a channel with no sane read holds its last value like a
+  stall. 1 dB resolution.
+- New "rssi only" serial line (each report, when On): samples, reads out of
+  range, dBm range seen and the share of samples equal to the previous one.
+- Boot timing test uses whichever method is on.
+
+## Revision 83
+- While "802.11p mode" is On, the measurement timeout is fixed at 12 ms
+  (802.11p roughly doubles each measurement to about 6.4 ms, so 8 ms caused
+  random timeouts). The saved "Meas timeout" value is not changed: turn
+  802.11p Off and it is used again. The menu shows "12 ms (11p)" on that
+  row and won't let you edit it while 802.11p is On.
+- "Sig RSSI fill" help now says to leave it Off: on the C5, signal-RSSI mode
+  stops the noise-floor estimator, so every normal reading times out.
+
+## Revision 82
+- Removed the phy_get_rssi() stand-in for stalled readings. Two ESP32-C5
+  FPV projects (FPVGateC5RX, C5VRX) found that it only updates when a Wi-Fi
+  packet is received, so on quiet channels it freezes at an old value; the
+  Revision 81 logs showed exactly that (offsets of -7 and -38 dB on two
+  boards, fake +25 dB signals). Stalled readings hold the last good value
+  again.
+- New "Sig RSSI fill" setting (FPV Channel Activity page, default Off):
+  switches on libphy's signal-RSSI mode (phy_check_sigrssi_en(1)), which
+  measures continuously, and fills stalled readings with phy_get_sigrssi():
+  the median of 5 reads 250 us apart plus an offset learned from good
+  readings ("sig rssi fill" line in serial). Experimental: the mode rewrites
+  some AGC registers, which might change the normal readings.
+- New "802.11p mode" setting (same page, default Off): calls
+  phy_11p_set(1, 0) at start-up, reported to improve reception from
+  5750 to 5990 MHz. Experimental.
+- Both functions are declared weak: if a core's libphy lacks one, the
+  sketch still links and serial says the setting was ignored.
+- "No data" now has hysteresis: a channel becomes "--" above 60% held
+  readings and returns below 30%, so it doesn't flicker at the threshold.
+
+## Revision 81
+- Stalled measurements now use the receiver's RSSI register, corrected by an
+  offset learned on this board: on every good measurement the RSSI is read
+  too and the difference is averaged (outliers over 10 dB ignored after the
+  first 50). Once 50 pairs are in, a stall gives a live reading, RSSI plus
+  offset. RSSI values outside -110..-20 are treated as garbage (the likely
+  source of the old 250+ dB peaks). Until calibrated, or with garbage RSSI,
+  the last good reading is held as in Revision 80. Serial prints an
+  "rssi cal" line with the offset.
+- Calibrated stand-in readings go into the noise history but never set the
+  floor; held readings stay out of both.
+- Channels with no live data (more than 80% of recent readings held) are
+  drawn as dark "--" boxes on the Activity and Noise grids and left out of
+  the Noise shading and ranking, the Quietest lists and the IMD-free sets.
+  Previously such a channel had no history, so it looked like the quietest.
+
+## Revision 80
+- Stalled measurements: when every reading at a frequency times out, the
+  scanner now repeats that frequency's last good reading (NAN, i.e. skipped,
+  if there has never been one) instead of substituting the receiver's RSSI
+  register. The RSSI value is on a different scale and produced impossible
+  results (peaks of 250+ dB above the floor, false "busy" percentages on
+  E7 / E8 and R8, and deep dips on the spectrum). Held readings are kept out
+  of floor learning and out of the noise history.
+- New "Meas timeout" setting on the FPV Channel Activity page (4-20 ms,
+  default 8 ms; it was a fixed 5 ms). A normal measurement takes about
+  3.3 ms; the longer limit lets slow readings finish instead of stalling.
+  Only stalled readings take the extra time. Applies to every page.
+- Serial "stalls" line now shows the held value ("held dB").
+
 ## Revision 79
 - Waterfall: the colour for no signal is a darker blue (0, 0, 35 instead of
   0, 0, 60), and "Waterfall log" now defaults to 8.

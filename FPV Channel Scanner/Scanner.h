@@ -1,6 +1,6 @@
 /*
  * FPV Channel Scanner - Scanner.h
- * Revision: 79
+ * Revision: 87
  *
  * Shared declarations: every global variable (defined in State.cpp) and
  * every function, grouped by the file that defines it. Each .cpp file
@@ -37,7 +37,14 @@ void runConfigMenu();
 extern uint32_t g_nfTimeouts;
 extern StallStat g_stalls[MAX_STALL_STATS];
 extern int g_nStalls;
-extern bool g_lastReadFallback;   // last readFreqDb() used the RSSI fallback
+extern bool g_lastReadFallback;   // last readFreqDb() stalled (calibrated RSSI or held value)
+extern bool g_lastReadHeld;       // ...and repeated the last good value (no live data)
+extern float gridHeldFrac[NUM_BANDS][NUM_CH];   // recent share of held readings per channel
+extern bool  gridNoData[NUM_BANDS][NUM_CH];     // channel currently "no data" (with hysteresis)
+bool chanNoData(int b, int c);
+bool mhzBlocked(float mhz);       // above the "Max MHz" setting
+bool measTimeoutLocked(int i);    // setting i is "Meas timeout" and 802.11p mode is on (fixed 12 ms)    // channel's readings are mostly held: show "--", leave out of lists
+void printRssiStats();            // serial: "RSSI only" read statistics (when on)
 // timing statistics, printed and reset once per second
 extern uint64_t g_tTuneUs, g_tMeasUs, g_tDrawUs;
 extern uint32_t g_nTunes, g_nMeas;
@@ -143,6 +150,7 @@ int nextBandInButtonOrder(int band);
 // ---------------------------------------------------------------- Screen Common.cpp
 void drawGridFrame(const char *title, RGB titleColor);
 void drawGridBox(int x, int y, RGB fill, bool highlight);
+void drawNoDataBox(int x, int y, int b, int c);   // grid box for a channel with no live data
 void updateScanDots();
 void drawScanning(int y);
 void drawSpanLabel();

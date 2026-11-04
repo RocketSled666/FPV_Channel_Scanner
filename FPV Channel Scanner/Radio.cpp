@@ -1,9 +1,10 @@
 /*
  * FPV Channel Scanner - Radio.cpp
- * Revision: 79
+ * Revision: 87
  *
  * 5 GHz measurement: tuning with the internal phy_set_chanfreq(), reading
- * the baseband noise-floor estimator, the RSSI fallback when it stalls,
+ * the baseband noise-floor estimator (or signal RSSI with "RSSI only"),
+ * holding the last good value when a reading stalls,
  * radio start-up, the boot timing test and the serial timing report.
  */
 
@@ -36,15 +37,73 @@ void noteStall(uint16_t mhz, float fallbackDb) {
 
 void printStalls() {
   if (g_nStalls == 0) return;
-  Serial.print("  stalls (MHz x count, RSSI fallback dB):");
+  Serial.print("  stalls (MHz x count, last value dB):");
   for (int i = 0; i < g_nStalls; i++)
     Serial.printf(" %u x%lu (%.1f)", g_stalls[i].mhz, (unsigned long)g_stalls[i].count, g_stalls[i].lastFallbackDb);
   Serial.println();
 }
 
-// Tune to a frequency and return the average power in dB (relative).
-// If every measurement stalls, the receiver RSSI register is used instead and
-// g_lastReadFallback is set, so callers can keep it out of floor learning.
+// Last good reading per MHz (quarter dB), INT16_MIN = none yet.
+static int16_t heldQdb[HELD_MHZ_N];
+static bool heldInit = false;
+
+// "RSSI only" setting: measure with libphy's signal RSSI (dBm) instead of the
+// noise-floor estimator. Switching signal-RSSI mode on stops the estimator
+// on the C5 (every estimator read times out), so it is one or the other.
+// Each sample is the median of SIG_READS reads SIG_READ_GAP_US apart, which
+// drops a single Wi-Fi spike or VTX dip. Resolution is 1 dB per read (the
+// estimator gives 0.25 dB), so averaging samples matters more here.
+static bool     sigOn = false;            // signal-RSSI mode switched on at start-up
+static uint32_t sigReads = 0, sigBad = 0, sigSame = 0, sigSamples = 0;
+static int      sigMin = 0, sigMax = 0, sigPrev = INT16_MIN;
+
+static bool sigOk(int v) { return v >= SIG_OK_MIN && v <= SIG_OK_MAX; }
+
+// Median of the sane reads, or INT16_MIN if none is sane.
+static int sigReadMedian() {
+  int v[SIG_READS], n = 0;
+  for (int k = 0; k < SIG_READS; k++) {
+    int r = phy_get_sigrssi();
+    sigReads++;
+    if (sigOk(r)) {                                   // insertion sort as we go
+      int j = n++;
+      while (j > 0 && v[j - 1] > r) { v[j] = v[j - 1]; j--; }
+      v[j] = r;
+    } else sigBad++;
+    if (k + 1 < SIG_READS) delayMicroseconds(SIG_READ_GAP_US);
+  }
+  return n ? v[n / 2] : INT16_MIN;
+}
+
+// One "RSSI only" sample in quarter dB (same units as measureQdb), or
+// INT16_MIN if no read was sane. Also keeps the statistics for serial.
+static int16_t sigMeasureQdb() {
+  int v = sigReadMedian();
+  if (v == INT16_MIN) { g_nfTimeouts++; return INT16_MIN; }
+  if (sigSamples == 0 || v < sigMin) sigMin = v;
+  if (sigSamples == 0 || v > sigMax) sigMax = v;
+  if (v == sigPrev) sigSame++;                      // same as the previous sample (frozen?)
+  sigPrev = v; sigSamples++;
+  return (int16_t)(v * 4);
+}
+
+// Serial line per report: how many reads were out of range and how often a
+// sample repeated the previous one (near 100% would mean it isn't updating).
+void printRssiStats() {
+  if (!sigOn) return;
+  Serial.printf("  rssi only: %lu samples, %lu/%lu reads out of range, range %d..%d dBm, %lu%% repeats\n",
+                (unsigned long)sigSamples, (unsigned long)sigBad, (unsigned long)sigReads, sigMin, sigMax,
+                (unsigned long)(sigSamples ? sigSame * 100 / sigSamples : 0));
+  sigReads = sigBad = sigSame = sigSamples = 0;
+}
+
+// One measurement with whichever method is on.
+static int16_t measureAny() { return sigOn ? sigMeasureQdb() : measureQdb(); }
+
+// Tune to a frequency and return the average power in dB (relative; dBm
+// with "RSSI only"). If every measurement fails, g_lastReadFallback and
+// g_lastReadHeld are set (callers keep it out of floors and noise history)
+// and the last good reading at that frequency is returned (NAN if none yet).
 float readFreqDb(uint16_t mhz, int samples, uint32_t settleUs) {
   uint32_t t0 = micros();
   phy_set_chanfreq(mhz, 0);           // 20 MHz bandwidth
@@ -53,20 +112,24 @@ float readFreqDb(uint16_t mhz, int samples, uint32_t settleUs) {
   uint32_t t2 = micros();
   int32_t sum = 0; int n = 0;
   for (int i = 0; i < samples; i++) {
-    int16_t q = measureQdb();
+    int16_t q = measureAny();
     if (q != INT16_MIN) { sum += q; n++; }
   }
   uint32_t t3 = micros();
   g_tTuneUs += t1 - t0; g_nTunes++;
   g_tMeasUs += t3 - t2; g_nMeas += samples;
   pollInput();
-  g_lastReadFallback = false;
-  if (n == 0) {
-    float fb = (float)phy_get_rssi();
-    noteStall(mhz, fb);
-    g_lastReadFallback = true;
-    return fb;
+  if (!heldInit) { for (int i = 0; i < HELD_MHZ_N; i++) heldQdb[i] = INT16_MIN; heldInit = true; }
+  int hi = (int)mhz - HELD_MHZ_LO;
+  bool inRange = hi >= 0 && hi < HELD_MHZ_N;
+  g_lastReadFallback = false; g_lastReadHeld = false;
+  if (n == 0) {                                   // stalled: hold the last good value
+    float held = (inRange && heldQdb[hi] != INT16_MIN) ? heldQdb[hi] / 4.0f : NAN;
+    noteStall(mhz, held);
+    g_lastReadFallback = true; g_lastReadHeld = true;
+    return held;
   }
+  if (inRange) heldQdb[hi] = (int16_t)(sum / n);
   return (float)sum / n / 4.0f;
 }
 
@@ -100,6 +163,17 @@ void radioInit() {
   e = esp_wifi_set_channel(149, WIFI_SECOND_CHAN_NONE);  // brings up 5 GHz cal
   if (e != ESP_OK) Serial.printf("set_channel: %s\n", esp_err_to_name(e));
   delay(50);
+  // Optional libphy modes (settings). Weak symbols: missing = not available.
+  if (cfg.mode11p) {
+    if (phy_11p_set) { phy_11p_set(1, 0); Serial.println("802.11p mode: on"); }
+    else Serial.println("802.11p mode: not in this core's libphy, ignored");
+  }
+  if (cfg.rssiOnly) {
+    if (phy_check_sigrssi_en && phy_get_sigrssi) {
+      phy_check_sigrssi_en(1); sigOn = true;
+      Serial.println("RSSI only: on (signal RSSI in dBm, noise-floor estimator not used)");
+    } else Serial.println("RSSI only: not in this core's libphy, using the noise-floor estimator");
+  }
 }
 
 // Times the retune and a single measurement separately, so the serial log
@@ -111,11 +185,11 @@ void bootTimingTest() {
     uint32_t t0 = micros();
     phy_set_chanfreq(testMhz[k], 0);
     uint32_t tune = micros() - t0;
-    measureQdb();                                   // discard after retune
+    measureAny();                                   // discard after retune
     uint32_t mn = 0xFFFFFFFF, mx = 0, sum = 0;
     for (int i = 0; i < 10; i++) {
       uint32_t a = micros();
-      measureQdb();
+      measureAny();
       uint32_t d = micros() - a;
       sum += d; if (d < mn) mn = d; if (d > mx) mx = d;
     }

@@ -1,6 +1,6 @@
 /*
  * FPV Channel Scanner
- * Revision: 79
+ * Revision: 87
  * Board : Waveshare ESP32-C5-LCD-2.73 (ESP32-C5, ILI9488 320x320 SPI LCD)
  * Core  : Arduino-ESP32 3.3.x  (Tools > Board > "ESP32C5 Dev Module")
  *
@@ -104,7 +104,7 @@
  *   State.cpp       global state
  *   Display.cpp     LCD driver, text, IO expander
  *   Input.cpp       buttons
- *   Radio.cpp       tuning, measurement, RSSI fallback, timing
+ *   Radio.cpp       tuning, measurement, stall handling, timing
  *   Bands.cpp       band display order
  *   Settings.cpp    settings: list, limits, defaults, flash load / save
  *   Config Menu.cpp Configuration menu
@@ -187,6 +187,27 @@
  *   78  Waterfall colours on a log curve, set by "Waterfall log" (Spectrum
  *       settings; 0 = linear, default 4) so weak signals are brighter
  *   79  Waterfall floor colour darker blue; Waterfall log default 8
+ *   80  A stalled measurement now holds that frequency's last good reading
+ *       (kept out of floors and noise history) instead of the RSSI register;
+ *       "Meas timeout" setting (default 8 ms, was a fixed 5 ms)
+ *   81  Calibrated RSSI stands in for stalled readings (offset learned from
+ *       good readings, garbage RSSI ignored); channels with no live data
+ *       show "--" and are left out of the Noise ranking, Quietest and IMD
+ *   82  phy_get_rssi() stand-in removed (it freezes between Wi-Fi packets);
+ *       optional "Sig RSSI fill" (libphy signal-RSSI mode) and "802.11p
+ *       mode" settings; "no data" with hysteresis (on > 60%, off < 30%)
+ *   83  Measurement timeout fixed at 12 ms while 802.11p mode is on (the
+ *       saved "Meas timeout" value returns when it is off); Sig RSSI fill
+ *       help now says to leave it Off
+ *   84  "Sig RSSI fill" replaced by "RSSI only": measure every reading with
+ *       libphy signal RSSI (median of 5 reads) instead of the noise-floor
+ *       estimator; "rssi only" serial statistics
+ *   85  RSSI only On by default; Samples/channel default 3, set to 1 / 3
+ *       when RSSI only is toggled Off / On; samples help shows ms per reading
+ *   86  Spectrum graph auto range (fits the highest peak, 10 dB steps, shrinks
+ *       after 5 s); waterfall stays on the span
+ *   87  "Max MHz" setting: frequencies above it aren't measured (grids "--",
+ *       spectrum greyed), for boards that read junk at the top of the band
  */
 
 #include "Scanner.h"

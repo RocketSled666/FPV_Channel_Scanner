@@ -43,7 +43,7 @@ All in `FPV Channel Scanner/`:
 | `State.cpp` | Global state shared between pages |
 | `Display.cpp` | ILI9488 driver, text drawing, IO expander (LCD reset / backlight) |
 | `Input.cpp` | Buttons |
-| `Radio.cpp` | Tuning, noise-floor measurement, RSSI fallback, start-up, timing report |
+| `Radio.cpp` | Tuning, noise-floor measurement, stall handling, start-up, timing report |
 | `Bands.cpp` | Band display order (lowest frequency first) |
 | `Settings.cpp` | Settings list, limits and defaults; flash load / save |
 | `Config Menu.cpp` | Configuration menu |
@@ -81,7 +81,12 @@ pop-up shows and the page stays put.
   dots are a falling peak hold. A 31-pixel waterfall in a white box under the
   graph shows the last 31 sweeps, newest on top (dark blue = weak, bright yellow =
   strong). Each channel's dB above the floor is printed
-  under its number (blank below 3 dB, strongest in amber). Band buttons
+  under its number (blank below 3 dB, strongest in amber). The graph's
+  height ranges itself: at least the span, and when a signal goes higher
+  the top jumps to fit it (rounded up to 10 dB; the axis label shows it),
+  then steps back down 10 dB at a time after 5 s without needing it. The
+  waterfall stays on the span, so its colours mean the same from row to
+  row (strong signals just saturate to yellow). Band buttons
   L E R A B F are a row above the graph, as wide as it (selected band in green).
 - **FPV Channel Noise**: same layout. Every channel keeps its own long-term
   statistics from start-up (or the last reset): average dB above the floor,
@@ -128,14 +133,14 @@ bar, then a Save / Discard page:
 
 | Page | Settings |
 |---|---|
-| FPV Channel Activity | Span (dB), learn sweeps, samples per channel |
+| FPV Channel Activity | Span (dB), learn sweeps, samples per channel, and for all pages: measurement timeout (ms), RSSI only, 802.11p mode |
 | Spectrum | Step (MHz), samples per point, peak decay, waterfall log curve (0 = linear) |
 | FPV Channel Noise | Busy level (dB), shading gamma, full-red spread (dB) |
 | Quietest Channels | Minimum history before the list opens (s); L Band Limit (1-8): most L-band channels in the Quietest lists and in each IMD-free set (8 = no limit) |
 | Quietest for HDZero | HDZero features, low band L1-L8, E1 and F1 |
 | IMD-Free Channels | Min spacing (MHz), use L band |
 | User Interface | Long press, Configuration hold, splash time, splash combo, pop-up time, scanning-dot step (ms); IMD refresh (s); moved-channel fade (ms, 0 = off) |
-| General | Backlight (%) |
+| General | Max MHz (Off, or 5800-5995: channels and spectrum points above it are not measured), backlight (%) |
 
 - **KEY_L / KEY_R**: move up / down the list (past the end of a page goes to
   the next or previous page).
@@ -149,7 +154,8 @@ bar, then a Save / Discard page:
 - **KEY_R / KEY_L**: next / previous page (order above), when released.
 - **KEY_L + KEY_R held 5 s**: open the Configuration menu from any page.
 - **ENTER (short)** on the grid: cycle the span (15-40 dB, default 15). It sets
-  the grid brightness scale and the spectrum graph height, and is remembered
+  the grid brightness scale and the spectrum's minimum graph height and
+  waterfall scale, and is remembered
   across power cycles.
 - **ENTER (short)** on Channel Noise: clear the history (does nothing on the Quietest pages).
 - **ENTER (short)** on IMD-Free: hold the channel sets (they stop being
@@ -175,9 +181,37 @@ bar, then a Save / Discard page:
   without the -98...-88 dB clamp Espressif's own test code applies.
 
 ## Caveats
-- If a frequency's measurement stalls (seems to happen when a signal keeps
-  the receiver busy), the receiver's RSSI register is used instead. Serial
-  prints a "stalls" line listing those frequencies and the fallback values.
+- Measurement uses libphy's signal RSSI by default ("RSSI only" On, see
+  below). With it Off, the baseband noise-floor estimator is used instead;
+  if a frequency's measurement stalls (seems to happen when a signal keeps
+  the receiver busy, and on some boards on every sweep above 5.9 GHz), the
+  last good reading at that frequency is held, and kept out of the floor
+  and the noise history. A channel with more than 60% of recent
+  readings held shows "--" on the grids (until it drops below 30%) and is
+  left out of the Noise ranking, Quietest lists and IMD-free sets. Espressif
+  documents the C5's 5 GHz range only up to 5885 MHz, so R8 and E6-E8 are
+  outside it; the experimental "802.11p mode" setting is reported to help
+  5750-5990 MHz (it doubles measurement time, so the timeout is fixed at
+  12 ms while it is on). "Meas timeout" sets how long to wait
+  before a noise-floor reading counts as stalled. How often this happens
+  varies a lot from board to board.
+- "RSSI only" (default On) measures with libphy's signal RSSI
+  (phy_get_sigrssi(), dBm) instead of the noise-floor estimator; on the C5
+  the two can't run together. Each sample is the median of 5 reads 250 us
+  apart (about 1 ms). It reads live on every channel, R8 and E6-E8
+  included, with no stalls on the boards tested, at about 4 grid sweeps/s.
+  Resolution is 1 dB, against 0.25 dB for the estimator, so Samples/channel
+  defaults to 3; switching RSSI only Off in the menu sets it to 1, and
+  switching it On sets it back to 3 (you can still change it after). A "rssi only" serial line
+  shows reads out of range, the dBm range and how often a sample repeated
+  the previous one (near 100% would mean the value isn't updating).
+- Some boards read junk at the top of the band: one test board showed a
+  steady -30 to -40 dBm block from about 5925 MHz up that a second board
+  beside it didn't see (beyond the C5's documented 5885 MHz). On such a
+  board set "Max MHz" (General page), e.g. 5915: channels above it show
+  "--" and are left out of the Noise ranking, Quietest and IMD-free sets,
+  and the spectrum greys out everything above it. They aren't measured, so
+  sweeps get a little faster too.
 - The spectrum tunes in 4 MHz steps (2-6 MHz around channels), off the normal
   5 MHz Wi-Fi grid. If the synthesizer can't land on those exactly, the trace
   will look stepped; set `SPEC_STEP_MHZ` to 5.

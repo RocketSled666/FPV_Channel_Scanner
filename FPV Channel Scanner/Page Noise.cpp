@@ -1,6 +1,6 @@
 /*
  * FPV Channel Scanner - Page Noise.cpp
- * Revision: 79
+ * Revision: 87
  *
  * FPV Channel Noise page: long-term statistics for every channel
  * (average dB above floor, % busy, peak), shaded quietest to busiest.
@@ -78,6 +78,7 @@ void actDrawCell(int b, int c, int level, bool peak, int rank) {
   if (!gridShown(b, c)) return;                     // HDZero mode: blank where HDZero can't tune
   int x = GRID_X + c * (CELL_W + CELL_GAP);
   int y = GRID_Y + bandRow[b] * (CELL_H + CELL_GAP);
+  if (level == -2) { drawNoDataBox(x, y, b, c); return; }   // channel can't be measured
   RGB col = scaleColor(C_RED, level / 32.0f);          // black -> red
   drawGridBox(x, y, col, peak);
   char f[6];
@@ -117,7 +118,7 @@ void actDraw(bool learning, uint32_t learnStart) {
   int qb = -1, qc = -1; float quiet = 1e9f;  // black; outlined + named
   for (int b = 0; b < NUM_BANDS; b++)
     for (int c = 0; c < NUM_CH; c++) {
-      if (!gridShown(b, c)) continue;              // shading, quietest and ranks: drawn boxes only
+      if (!gridShown(b, c) || chanNoData(b, c)) continue;   // shading, quietest, ranks: live drawn boxes only
       float a = actAvg(b, c);
       if (a > busiest) busiest = a;
       if (a < quiet) { quiet = a; qb = b; qc = c; }
@@ -135,7 +136,7 @@ void actDraw(bool learning, uint32_t learnStart) {
   int nRank = 0;                            // 1 = quietest drawn box
   for (int i = 0; i < NUM_BANDS * NUM_CH; i++) {
     int b = order[i] / NUM_CH, c = order[i] % NUM_CH;
-    rank[b][c] = (havePeak && gridShown(b, c)) ? (int8_t)(++nRank) : 0;
+    rank[b][c] = (havePeak && gridShown(b, c) && !chanNoData(b, c)) ? (int8_t)(++nRank) : 0;
   }
 
   for (int b = 0; b < NUM_BANDS; b++)
@@ -143,6 +144,7 @@ void actDraw(bool learning, uint32_t learnStart) {
       float e = learning ? 0 : (actAvg(b, c) - quiet) / scale;   // 0..1
       e = constrain(e, 0.0f, 1.0f);
       int level = (int)lroundf(32.0f * powf(e, ACT_GAMMA));      // gain curve
+      if (chanNoData(b, c)) level = -2;                          // no live data: "--"
       bool peak = havePeak && b == pb && c == pc;
       if (level != actShownLevel[b][c] || peak != actShownPeak[b][c] || rank[b][c] != actShownRank[b][c]) {
         actDrawCell(b, c, level, peak, rank[b][c]);

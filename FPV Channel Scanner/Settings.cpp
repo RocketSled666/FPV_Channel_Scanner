@@ -1,6 +1,6 @@
 /*
  * FPV Channel Scanner - Settings.cpp
- * Revision: 79
+ * Revision: 87
  *
  * User settings: the values, their limits and defaults, loading them from
  * flash at start-up and saving them, plus helpers that depend on them.
@@ -17,7 +17,7 @@
 Settings cfg = {
   15,    // span
   4,     // learnSweeps
-  1,     // gridSamples
+  3,     // gridSamples   (1 when RSSI only is Off)
   4,     // specStep
   1,     // specSamples
   18,    // peakDecay10   (1.8 px)
@@ -41,15 +41,22 @@ Settings cfg = {
   3000,  // moveFadeMs
   8,     // lBandLimit
   8,     // wfLogK
+  8,     // measTimeoutMs
+  1,     // rssiOnly
+  0,     // mode11p
+  MAX_MHZ_OFF,  // maxMhz
 };
 
 const SettingDef SETTINGS[] = {
   // page (= title of the screen it configures), name, key, value, min, max, step, def, toggle, decimals, unit, help
   { "FPV Channel Activity", "Span",            "span",      &cfg.span,          5,  60,  5, 15, 0, 0, " dB",  "Signal for full brightness / full graph height" },
   { "FPV Channel Activity", "Learn sweeps",    "learn",     &cfg.learnSweeps,   1,  20,  1,  4, 0, 0, "",     "Sweeps used to learn the noise floor" },
-  { "FPV Channel Activity", "Samples/channel", "gridSmp",   &cfg.gridSamples,   1,   8,  1,  1, 0, 0, "",     "Readings averaged per channel (3.2 ms each)" },
+  { "FPV Channel Activity", "Samples/channel", "gridSmp",   &cfg.gridSamples,   1,   8,  1,  3, 0, 0, "",     "Readings averaged per channel" },
+  { "FPV Channel Activity", "Meas timeout",    "measTmo",   &cfg.measTimeoutMs, 4,  20,  1,  8, 0, 0, " ms",  "Give up on a noise-floor reading after this" },
+  { "FPV Channel Activity", "RSSI only",       "rssiOnly",  &cfg.rssiOnly,      0,   1,  1,  1, 1, 0, "",     "Signal RSSI (On) or noise-floor estimator (Off)" },
+  { "FPV Channel Activity", "802.11p mode",    "mode11p",   &cfg.mode11p,       0,   1,  1,  0, 1, 0, "",     "May help 5750-5990 MHz (experimental)" },
   { "Spectrum", "Step",            "specStep",  &cfg.specStep,      2,  10,  1,  4, 0, 0, " MHz", "Sweep step; channels are always hit exactly" },
-  { "Spectrum", "Samples/point",   "specSmp",   &cfg.specSamples,   1,   8,  1,  1, 0, 0, "",     "Readings averaged per point (3.2 ms each)" },
+  { "Spectrum", "Samples/point",   "specSmp",   &cfg.specSamples,   1,   8,  1,  1, 0, 0, "",     "Readings averaged per point" },
   { "Spectrum", "Peak decay",      "peakDecay", &cfg.peakDecay10,   2, 100,  2, 18, 0, 1, " px",  "How fast peak-hold dots fall, per sweep" },
   { "Spectrum", "Waterfall log",   "wfLog",     &cfg.wfLogK,        0,  20,  1,  8, 0, 0, "",     "0 = linear; higher = weak signals brighter" },
   { "FPV Channel Noise", "Busy level",      "busyDb",    &cfg.busyDb,        1,  15,  1,  3, 0, 0, " dB",  "Signal above floor that counts as busy" },
@@ -70,6 +77,7 @@ const SettingDef SETTINGS[] = {
   { "User Interface", "Scan dot step", "scanDot",    &cfg.scanDotMs,     100,  1000,   50,  400, 0, 0, " ms", "Speed of the Scanning dots" },
   { "User Interface", "IMD refresh",   "imdRefresh", &cfg.imdRefreshS,     2,    60,    1,   10, 0, 0, " s",  "How often IMD-free sets are re-picked" },
   { "User Interface", "Move fade",     "moveFade",   &cfg.moveFadeMs,      0, 10000,  250, 3000, 0, 0, " ms", "Red fade on a moved channel (0 = off)" },
+  { "General", "Max MHz",         "maxMhz",    &cfg.maxMhz,    5800, MAX_MHZ_OFF, 5, MAX_MHZ_OFF, 0, 0, " MHz", "Channels above this show -- (bad top band)" },
   { "General", "Backlight",       "backlight", &cfg.backlight,    10, 100, 10,100, 0, 0, "%",    "LCD brightness" },
 };
 const int NUM_SETTINGS = sizeof(SETTINGS) / sizeof(SETTINGS[0]);
@@ -126,10 +134,18 @@ void saveSpan() {
 void formatSetting(int i, char *buf, int len) {
   const SettingDef &d = SETTINGS[i];
   int v = *d.value;
+  if (measTimeoutLocked(i)) { snprintf(buf, len, "%d ms (11p)", MEAS_TIMEOUT_11P_MS); return; }
+  if (d.value == &cfg.maxMhz && v >= MAX_MHZ_OFF) { snprintf(buf, len, "Off"); return; }
   if (d.isToggle)          snprintf(buf, len, "%s", v ? "On" : "Off");
   else if (d.decimals == 1) snprintf(buf, len, "%d.%d%s", v / 10, v % 10, d.unit);
   else if (d.decimals == 2) snprintf(buf, len, "%d.%02d%s", v / 100, v % 100, d.unit);
   else                      snprintf(buf, len, "%d%s", v, d.unit);
+}
+
+// "Meas timeout" is fixed at MEAS_TIMEOUT_11P_MS while 802.11p mode is on;
+// the saved value is kept and used again when 802.11p is turned off.
+bool measTimeoutLocked(int i) {
+  return SETTINGS[i].value == &cfg.measTimeoutMs && cfg.mode11p;
 }
 
 // Step a numeric setting by +1 / -1 steps, staying inside its limits.
@@ -149,6 +165,19 @@ bool hdzeroOk(int b, int c) {
 // Grid pages: in HDZero mode only channels an HDZero VTX can use get a box.
 bool gridShown(int b, int c) {
   return !cfg.hdzero || hdzeroOk(b, c);
+}
+
+// A channel whose readings are mostly held (measurement stalls with no
+// calibrated RSSI to stand in) has no live data: the grids show "--" and the
+// Noise ranking, Quietest lists and IMD-free sets leave it out.
+// Channels above "Max MHz" count as no data too.
+bool chanNoData(int b, int c) {
+  return gridNoData[b][c] || mhzBlocked(FPV_MHZ[b][c]);
+}
+
+// Above "Max MHz": not measured (this board reads junk up there).
+bool mhzBlocked(float mhz) {
+  return mhz > cfg.maxMhz;
 }
 
 // Spectrum band buttons: in HDZero mode only bands with at least one HDZero
