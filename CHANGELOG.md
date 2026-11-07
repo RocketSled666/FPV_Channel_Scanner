@@ -2,6 +2,25 @@
 
 Revision numbers match the `Revision:` line in the source headers.
 
+## Revision 95
+- New Band Scan page between Spectrum and Noise, modelled on the ArduVidRx
+  band scanner. One sweep covers the whole band: every channel frequency
+  (sorted, duplicates once) plus fill-in points between them (3 when more
+  than 35 MHz apart, 2 when more than 22, 1 when more than 9) and 37 MHz
+  past each end, 91 points from 5325 to 5982 MHz.
+- Drawn as bars in 10 MHz bins on a 5300-6000 MHz axis (each bar is the
+  strongest point in its bin), with grid lines at quarters of the range and
+  the spectrum's auto range. Peaks of 5 dB or more get a frequency label
+  (ArduVidRx's peak marking, at least 7 bars apart); the strongest bar is
+  green and the footer names it, e.g. "Peak: F1 5740 MHz 22 dB".
+- ENTER pauses / resumes the scan ("Paused" in red); holding ENTER
+  re-learns the page's floor. The floor is seeded from the grid's learned
+  floor, and re-seeded after the grid floor is reset. Points above
+  "Max MHz" aren't measured.
+- With "Max MHz" set, the graph ends at it (the bin holding Max MHz is the
+  last bar) instead of 6000 MHz, and the bars widen to fill the width.
+- Help page lists the Band Scan ENTER action and the new page order.
+
 ## Revision 94
 - Spectrum graph height is the span again (peaks above it clip). The
   Revision 86 auto range is now the "Auto range" setting (Display page,

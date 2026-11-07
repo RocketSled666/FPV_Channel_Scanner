@@ -1,6 +1,6 @@
 /*
  * FPV Channel Scanner - Scanner.h
- * Revision: 94
+ * Revision: 95
  *
  * Shared declarations: every global variable (defined in State.cpp) and
  * every function, grouped by the file that defines it. Each .cpp file
@@ -200,3 +200,11 @@ void specDrawColumn(int x, int h, int pk);
 void specDrawChannelValues(const float *flo);
 void specDrawFooter(float peakMhz, float aboveDb, bool learning);
 void specSweep();
+
+// ---------------------------------------------------------------- Page Band Scan.cpp
+void bscanForgetFloor();
+void bscanDrawStatic();
+void bscanEnter();
+void bscanRelearn();
+void bscanTogglePause();
+void bscanSweep();

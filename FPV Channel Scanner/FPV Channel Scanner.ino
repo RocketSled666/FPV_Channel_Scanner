@@ -1,6 +1,6 @@
 /*
  * FPV Channel Scanner
- * Revision: 94
+ * Revision: 95
  * Board : Waveshare ESP32-C5-LCD-2.73 (ESP32-C5, ILI9488 320x320 SPI LCD)
  * Core  : Arduino-ESP32 3.3.x  (Tools > Board > "ESP32C5 Dev Module")
  *
@@ -17,13 +17,17 @@
  * found by disassembling Espressif's libphy.a for the ESP32-C5. They may
  * change between core versions. Readings are relative, not calibrated dBm.
  *
- * Five pages, plus a sixth in HDZero mode, in KEY_R order:
+ * Six pages, plus a seventh in HDZero mode, in KEY_R order:
  *   FPV CHANNEL ACTIVITY (grid) - all 48 FPV channels, square brightness =
  *               power above floor right now
  *   SPECTRUM  - continuous sweep across one band in 4 MHz steps, with the
  *               point nearest each channel moved onto its exact frequency; under
  *               the graph a 31-pixel waterfall shows the last 31 sweeps
  *               (newest on top), dark blue = weak, bright yellow = strong
+ *   BAND SCAN - the whole band in one sweep, like the ArduVidRx band
+ *               scanner: every channel frequency plus fill-in points, as
+ *               bars in 10 MHz bins; peaks labelled with their MHz, the
+ *               strongest bar green and named in the footer
  *   FPV CHANNEL NOISE - same layout as the grid; each box = its signal above
  *               the floor averaged over all time since start or the last
  *               reset, shaded from the quietest channel (black) to the
@@ -75,9 +79,9 @@
  *   to HDZero channels. In HDZero mode, Quietest for HDZero replaces
  *   Quietest Channels (the normal list isn't shown).
  *
- *   KEY_R: Activity -> Spectrum -> Noise -> Quietest -> IMD-Free -> Activity
- *          (HDZero mode: ... Noise -> Quietest for HDZero -> IMD-Free ...)
- *   KEY_L: Activity -> Noise -> Spectrum -> Activity;
+ *   KEY_R: Activity -> Spectrum -> Band Scan -> Noise -> Quietest -> IMD-Free
+ *          -> Activity (HDZero mode: ... Noise -> Quietest for HDZero -> IMD-Free ...)
+ *   KEY_L: Activity -> Noise -> Band Scan -> Spectrum -> Activity;
  *          IMD-Free -> Quietest (or Quietest for HDZero) -> Noise
  *
  * Buttons:
@@ -91,6 +95,7 @@
  *   ENTER (short) on either QUIETEST page does nothing
  *   ENTER (short) on SPECTRUM = select the next band button above the graph
  *                             (HDZero mode: bands HDZero can't use are skipped)
+ *   ENTER (short) on BAND SCAN = pause / resume the scan
  *   ENTER (hold 0.7 s)        = re-learn the noise floor (do it with VTXs off)
  *
  * Arduino IDE note: only setup() and loop() live in this .ino, so the IDE's
@@ -112,7 +117,8 @@
  *   Splash Image.h  splash picture data, made from Splash.PNG by
  *                   tools/Make Splash Header.py
  *   Screen Common.cpp  shared drawing, pop-up, page navigation
- *   Page Activity.cpp / Page Spectrum.cpp / Page Noise.cpp / Page Quietest.cpp
+ *   Page Activity.cpp / Page Spectrum.cpp / Page Band Scan.cpp /
+ *   Page Noise.cpp / Page Quietest.cpp
  *   font5x7.h       5x7 bitmap font
  *
  * Revision history: see CHANGELOG.md
@@ -220,6 +226,9 @@
  *       HDZero, Display, Controls); red "Configuration" title
  *   93  Config page titles end in "Page"
  *   94  Spectrum height = span again; auto range is a setting (default Off)
+ *   95  Band Scan page after Spectrum: whole-band bar graph like the
+ *       ArduVidRx band scanner, peak labels, ENTER pauses / resumes,
+ *       axis ends at "Max MHz"
  */
 
 #include "Scanner.h"
@@ -275,7 +284,9 @@ void setup() {
 }
 
 void loop() {
-  if (mode == MODE_SPECTRUM) specSweep(); else gridSweep();
+  if (mode == MODE_SPECTRUM) specSweep();
+  else if (mode == MODE_BANDSCAN) bscanSweep();
+  else gridSweep();
   pollInput();
 
   if (evConfig) {                           // KEY_L + KEY_R held: Configuration menu
@@ -299,7 +310,8 @@ void loop() {
       Serial.printf("page -> %s\n", mode == MODE_GRID ? "channel activity" : mode == MODE_ACTIVITY ? "channel noise" :
                                 mode == MODE_QUIET ? "quietest channels" :
                                 mode == MODE_IMD ? "IMD-free channels" :
-                                mode == MODE_HDZERO ? "quietest for HDZero" : "spectrum");
+                                mode == MODE_HDZERO ? "quietest for HDZero" :
+                                mode == MODE_BANDSCAN ? "band scan" : "spectrum");
     }
   }
   if (popupUntilMs && (int32_t)(millis() - popupUntilMs) >= 0) {
@@ -313,6 +325,7 @@ void loop() {
     if (mode == MODE_GRID) { gridResetFloor(); gridInvalidate(); gridFooterDirty = true; drawTitleStatus(0, true); }
     else if (mode == MODE_ACTIVITY) { gridResetFloor(); actInvalidate(); actFooterDirty = true; drawTitleStatus(0, true); }
     else if (quietPage()) { gridResetFloor(); quietInvalidate(); quietFooterDirty = true; drawTitleStatus(0, true); }
+    else if (mode == MODE_BANDSCAN) bscanRelearn();
     else { specFloorValid[specBand] = false; specNoSeedOnce = true; specSetBand(specBand); specDrawStatic(); }
   }
   if (evEnterShort) {
@@ -325,6 +338,8 @@ void loop() {
       actClear(); actInvalidate(); actFooterDirty = true;
     } else if (quietPage()) {               // IMD-Free: hold / release; Quietest pages: nothing
       if (mode == MODE_IMD) imdToggleHold();
+    } else if (mode == MODE_BANDSCAN) {     // pause / resume the scan
+      bscanTogglePause();
     } else {                                // next band button
       specSetBand(nextBandInButtonOrder(specBand));
       specDrawStatic();

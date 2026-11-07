@@ -1,6 +1,6 @@
 /*
  * FPV Channel Scanner - Config Menu.cpp
- * Revision: 94
+ * Revision: 95
  *
  * Configuration menu, opened by holding KEY_L + KEY_R for CONFIG_HOLD_MS on
  * any page.
@@ -251,18 +251,18 @@ static void drawHelpPage() {
   helpHeading(y, "ENTER (short press)");
   helpLine(y, "Activity:",        "cycle the span (dB), saved");
   helpLine(y, "Spectrum:",        "select the next band");
+  helpLine(y, "Band Scan:",       "pause / resume the scan");
   helpLine(y, "Noise:",           "clear the noise history");
   helpLine(y, "IMD-Free:",        "hold / release the sets");
   helpHeading(y, "Page order");
-  lcdText(10, y, cfg.hdzero ? "Right: Activity > Spectrum > Noise"
-                            : "Right: Activity > Spectrum > Noise > Quietest", 1, C_TEXT, C_BG);
+  lcdText(10, y, "Right: Activity > Spectrum > Band Scan", 1, C_TEXT, C_BG);
   y += HELP_PITCH;
-  lcdText(10, y, cfg.hdzero ? "       > Quietest for HDZero > IMD-free" : "       > IMD-free", 1, C_TEXT, C_BG);
+  lcdText(10, y, cfg.hdzero ? "       > Noise > Quietest for HDZero > IMD"
+                            : "       > Noise > Quietest > IMD-free", 1, C_TEXT, C_BG);
   y += HELP_PITCH;
   lcdText(10, y, "Left:  goes back the same way", 1, C_TEXT, C_BG);
-  y += HELP_PITCH;
-  snprintf(s, sizeof(s), "Quietest opens after %d s of noise history", cfg.quietMinS);
-  lcdText(10, y, s, 1, C_DIM, C_BG);
+  snprintf(s, sizeof(s), "Quietest after %d s", cfg.quietMinS);   // noise history needed
+  lcdText(10 + 30 * 6, y, s, 1, C_DIM, C_BG);
   y += HELP_PITCH;
   helpHeading(y, "Configuration");
   helpLine(y, "Left / Right:",    "up / down; - / + when editing");

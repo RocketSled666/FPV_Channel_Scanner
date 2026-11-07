@@ -1,6 +1,6 @@
 /*
  * FPV Channel Scanner - Bands.cpp
- * Revision: 94
+ * Revision: 95
  *
  * Band display order (by lowest frequency), shared by the grid rows and
  * the spectrum band buttons.
