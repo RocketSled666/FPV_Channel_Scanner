@@ -104,13 +104,17 @@ void gridSweep() {
     }
 
   // Keep a channel's floor from being learned while a VTX sits on it:
-  // clamp each floor to at most (median floor + 4 dB).
+  // clamp each floor to at most (median floor + 4 dB). Only learned floors
+  // count and get clamped; 0 = not learned yet (held or above "Max MHz").
   float tmp[NUM_BANDS * NUM_CH]; int n = 0;
-  for (int b = 0; b < NUM_BANDS; b++) for (int c = 0; c < NUM_CH; c++) tmp[n++] = gridFloor[b][c];
-  for (int i = 1; i < n; i++) { float k = tmp[i]; int j = i - 1; while (j >= 0 && tmp[j] > k) { tmp[j+1] = tmp[j]; j--; } tmp[j+1] = k; }
-  float medFloor = tmp[n / 2];
   for (int b = 0; b < NUM_BANDS; b++) for (int c = 0; c < NUM_CH; c++)
-    if (gridFloor[b][c] > medFloor + 4.0f) gridFloor[b][c] = medFloor + 4.0f;
+    if (gridFloor[b][c] != 0) tmp[n++] = gridFloor[b][c];
+  for (int i = 1; i < n; i++) { float k = tmp[i]; int j = i - 1; while (j >= 0 && tmp[j] > k) { tmp[j+1] = tmp[j]; j--; } tmp[j+1] = k; }
+  if (n > 0) {
+    float medFloor = tmp[n / 2];
+    for (int b = 0; b < NUM_BANDS; b++) for (int c = 0; c < NUM_CH; c++)
+      if (gridFloor[b][c] != 0 && gridFloor[b][c] > medFloor + 4.0f) gridFloor[b][c] = medFloor + 4.0f;
+  }
 
   if (!learning) actAccumulate(raw);
 
@@ -197,13 +201,15 @@ void gridSweep() {
 }
 
 // Noise floor at any frequency, linearly interpolated from the grid's 48
-// learned channel floors (nearest value is held beyond the ends).
+// learned channel floors (nearest value is held beyond the ends). Channels
+// with no floor (0) are skipped; 0 if no channel has one.
 float gridFloorAt(float mhz) {
   float lowF = 1e9f, lowV = 0, highF = -1e9f, highV = 0;     // overall ends
   float belowF = -1e9f, belowV = 0, aboveF = 1e9f, aboveV = 0; // neighbours
   for (int b = 0; b < NUM_BANDS; b++)
     for (int c = 0; c < NUM_CH; c++) {
       float f = FPV_MHZ[b][c], v = gridFloor[b][c];
+      if (v == 0) continue;
       if (f < lowF)  { lowF = f;  lowV = v; }
       if (f > highF) { highF = f; highV = v; }
       if (f <= mhz && f > belowF) { belowF = f; belowV = v; }
