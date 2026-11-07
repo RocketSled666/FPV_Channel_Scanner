@@ -154,7 +154,7 @@ void actDraw(bool learning, uint32_t learnStart) {
     }
 
   int footB = havePeak ? pb : -1, footC = havePeak ? pc : -1;
-  int tenths = havePeak ? (int)lroundf(quiet * 10) : -1;
+  int tenths = (havePeak && qb >= 0) ? (int)lroundf(quiet * 10) : -1;   // qb < 0: no live channel
   if (learning) {
     drawLearnProgress(FOOT_Y, (gridSweeps - learnStart) * 100 / GRID_LEARN_SWEEPS);
   } else if (lastLearning) {
