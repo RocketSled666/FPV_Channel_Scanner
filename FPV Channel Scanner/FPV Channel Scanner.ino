@@ -296,7 +296,8 @@ void loop() {
   if (popupUntilMs && (int32_t)(millis() - popupUntilMs) >= 0) {
     popupUntilMs = 0;
     lcdFill(POPUP_X, POPUP_Y, POPUP_W, POPUP_H, 0, 0, 0);   // clear it, gaps included
-    actInvalidate();                         // redraw the boxes the pop-up covered
+    if (mode == MODE_IMD) imdRepaint();      // redraw what the pop-up covered
+    else actInvalidate();
   }
   if (evEnterLong) {                        // hold: re-learn the noise floor
     evEnterLong = false;

@@ -189,6 +189,7 @@ void quietDrawStatic();
 void quietDrawEntry(int slot, int idx);
 void quietDraw(bool learning, uint32_t learnStart);
 void imdToggleHold();             // IMD-Free page: ENTER freezes / releases the sets
+void imdRepaint();                // IMD-Free page: redraw the table after the pop-up
 
 // ---------------------------------------------------------------- Page Spectrum.cpp
 int freqToCol(float mhz);

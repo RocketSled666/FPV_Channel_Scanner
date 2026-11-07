@@ -118,7 +118,7 @@ void gridSweep() {
   if (mode == MODE_ACTIVITY) {
     if (!popupUntilMs) actDraw(learning, learnStart);   // don't draw over the pop-up
   } else if (quietPage()) {
-    quietDraw(learning, learnStart);
+    if (!popupUntilMs) quietDraw(learning, learnStart);   // don't draw over the pop-up
   } else {
   int pb = -1, pc = -1; float best = -1e9f;
   for (int b = 0; b < NUM_BANDS; b++)
