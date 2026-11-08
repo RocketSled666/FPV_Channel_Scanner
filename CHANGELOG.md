@@ -2,6 +2,45 @@
 
 Revision numbers match the `Revision:` line in the source headers.
 
+## Revision 97
+- Band Scan now comes right after the Activity grid: KEY_R order Activity >
+  Band Scan > Spectrum > Noise > Quietest > IMD-Free (KEY_L the reverse).
+- Band Scan ENTER is Hold / Release like the IMD-Free page: centred
+  "ENTER: Hold" / "ENTER: Release" hint and a red "Hold" flashing about
+  once a second while held (was "Paused").
+- The strongest Band Scan bar is yellow (the footer's colour); the other
+  bars are green like the Activity grid, brighter the stronger they are
+  (25% at 0 dB up to full at the graph top), instead of grey.
+- "Restore page" setting renamed "Last page" (same flash key, so the saved
+  value carries over).
+- Band Scan graph height works like the Spectrum's: fixed at the span
+  (bars above it clip), or auto range when "Auto range" is On (it always
+  auto-ranged before).
+- Band Scan uses "Busy level" (same setting as Noise / Quietest / IMD,
+  default 6 dB) instead of a fixed 5 dB: bars at or above it are red,
+  brighter the stronger (green below it), but only when the bar's point is
+  a channel frequency; fill-in points between channels stay green. The
+  strongest stays yellow.
+  Only peaks at or above it are labelled or named in the footer.
+- New "Peak labels" setting (Display page): Band (default; channel name,
+  e.g. "F1" or "R7/F8"), MHz, or
+  Both ("F1 5740"). Labels are one line rotated 90 degrees (reading
+  upward), drawn by the new lcdTextV().
+- Every red (busy channel) and yellow bar gets a label, even adjacent ones.
+  Labels are centred on their bars; adjacent ones step upward from the
+  lowest bar to the highest (each just above its bar or above the label
+  already there), with a dotted line down to the bar when lifted. With the
+  top full, a label goes in the first free spot below (over the bar).
+  Only bars on channel frequencies are labelled; peaks between channels
+  (fill-in points) get no label.
+- "Backlight" moved from the Display page to the Controls page (the Display
+  page was full).
+- "Auto range" also applies to the Activity grid: its brightness scale is
+  at least the span and grows to fit the strongest box (10 dB steps,
+  shrinking after 5 s), like the Spectrum and Band Scan graphs.
+- With "Auto range" On, the span label in the footers reads "Span auto".
+- Help page lists the new order and the Band Scan hold.
+
 ## Revision 96
 - The page shown last is saved in flash (with the spectrum band) and shown
   again after the splash at the next start-up, instead of always the

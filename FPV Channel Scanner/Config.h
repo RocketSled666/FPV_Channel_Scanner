@@ -1,6 +1,6 @@
 /*
  * FPV Channel Scanner - Config.h
- * Revision: 96
+ * Revision: 97
  *
  * Hardware pins, tuning constants, shared types, frequency table, colors
  * and the undocumented ESP32-C5 radio access used by the scanner.
@@ -10,7 +10,7 @@
 
 // Firmware revision shown on the Save / Discard page. Keep it equal to the
 // "Revision:" line in the file headers.
-#define FW_REVISION 96
+#define FW_REVISION 97
 
 #include <Arduino.h>
 #include <Wire.h>
@@ -68,6 +68,7 @@ struct Settings {
   int tuneMode;      // TUNE_DIRECT, TUNE_WIFI or TUNE_WIFI_CH (how the receiver is tuned)
   int rxFilterMhz;   // analog RX filter width, RXF_MIN..RXF_AUTO-1 MHz, or RXF_AUTO = as calibrated
   int specAutoRange; // Spectrum graph height grows to fit peaks (Off = fixed at the span)
+  int bsLabel;       // Band Scan peak labels: BS_LBL_BAND, BS_LBL_MHZ or BS_LBL_BOTH
   int restorePage;   // start on the last page shown (Off = Activity grid)
 };
 
@@ -272,10 +273,15 @@ extern "C" void     phy_i2c_writeReg(unsigned block, unsigned host, unsigned reg
 #define BS_GRID_N      4                 // grid lines at quarters of the range
 #define BS_AXIS_Y      (BS_GY + BS_GH + 5)   // MHz labels under the graph
 #define BS_FOOT_Y      266               // "Peak: ..." line
-#define BS_HINT_Y      310               // "ENTER: pause" / "Paused"
-#define BS_PEAK_MIN_DB 5                 // smallest bar (dB above floor) that gets a label or turns green
-#define BS_LABEL_GAP   7                 // peak labels at least this many bars apart
-#define BS_C_BAR       RGB{ 170, 170, 185 }
+#define BS_HOLD_Y      294               // flashing red "Hold" while held (16 px, ends above the hint)
+#define BS_HINT_Y      310               // "ENTER: Hold" / "ENTER: Release"
+#define BS_PEAK_MIN_DB ((int)cfg.busyDb)  // Busy level: bars this far above the floor turn red and get a label
+#define BS_LBL_BAND    0                 // "Peak labels": channel name ("F1"; MHz if none)
+#define BS_LBL_MHZ     1                 //   frequency ("5740")
+#define BS_LBL_BOTH    2                 //   both on one line ("F1 5740")
+#define BS_C_BUSY      RGB{ 255, 40, 40 }    // bars at or above Busy level (dimmed by strength)
+#define BS_VLBL_W      8                 // peak label (rotated text) width
+#define BS_BAR_MIN     0.25f             // bar brightness at 0 dB (full green at the graph top)
 
 // ---------------------------------------------------------------- colors
 static const RGB C_BG    = {   0,   0,   0 };

@@ -1,6 +1,6 @@
 /*
  * FPV Channel Scanner - Display.cpp
- * Revision: 96
+ * Revision: 97
  *
  * ILI9488 320x320 LCD driver (SPI, 18-bit color) on ESP-IDF's esp_lcd
  * panel IO, text drawing with the 5x7 font, and the CH32V003 IO expander
@@ -173,6 +173,28 @@ void lcdText(int x, int y, const char *s, int scale, RGB fg, RGB bg) {
 // nearest-neighbour scaled, for sizes between the integer scales.
 void lcdTextSized(int x, int y, const char *s, int cw, int ch, RGB fg, RGB bg) {
   drawText(x, y, s, cw, ch, 7, fg, bg);
+}
+
+// Text rotated 90 degrees anticlockwise (reads bottom to top), normal size:
+// a box 8 px wide and 6 px per character tall, top-left corner at x, y.
+struct VTextCtx { const char *s; int len; RGB fg, bg; };
+static void rowVText(uint8_t *dst, int py, int w, const void *ctx) {
+  const VTextCtx *k = (const VTextCtx *)ctx;
+  int along = k->len * 6 - 1 - py;                   // position along the text
+  char c = k->s[along / 6];
+  if (c < 0x20 || c > 0x7E) c = '?';
+  const uint8_t *g = FONT5X7[c - 0x20];
+  int col = along % 6;
+  for (int px = 0; px < w; px++) {
+    bool on = col < 5 && px < 7 && ((g[col] >> px) & 1);
+    RGB p = on ? k->fg : k->bg;
+    *dst++ = p.r; *dst++ = p.g; *dst++ = p.b;
+  }
+}
+
+void lcdTextV(int x, int y, const char *s, RGB fg, RGB bg) {
+  VTextCtx k = { s, (int)strlen(s), fg, bg };
+  lcdStreamRows(x, y, 8, 6 * k.len, rowVText, &k);
 }
 
 RGB scaleColor(RGB c, float k) {

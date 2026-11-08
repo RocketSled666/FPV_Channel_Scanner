@@ -1,6 +1,6 @@
 /*
  * FPV Channel Scanner
- * Revision: 96
+ * Revision: 97
  * Board : Waveshare ESP32-C5-LCD-2.73 (ESP32-C5, ILI9488 320x320 SPI LCD)
  * Core  : Arduino-ESP32 3.3.x  (Tools > Board > "ESP32C5 Dev Module")
  *
@@ -20,14 +20,15 @@
  * Six pages, plus a seventh in HDZero mode, in KEY_R order:
  *   FPV CHANNEL ACTIVITY (grid) - all 48 FPV channels, square brightness =
  *               power above floor right now
+ *   BAND SCAN - the whole band in one sweep, like the ArduVidRx band
+ *               scanner: every channel frequency plus fill-in points, as
+ *               bars in 10 MHz bins; peaks labelled with their MHz, the
+ *               strongest bar yellow and named in the footer, the others
+ *               green, brighter when stronger
  *   SPECTRUM  - continuous sweep across one band in 4 MHz steps, with the
  *               point nearest each channel moved onto its exact frequency; under
  *               the graph a 31-pixel waterfall shows the last 31 sweeps
  *               (newest on top), dark blue = weak, bright yellow = strong
- *   BAND SCAN - the whole band in one sweep, like the ArduVidRx band
- *               scanner: every channel frequency plus fill-in points, as
- *               bars in 10 MHz bins; peaks labelled with their MHz, the
- *               strongest bar green and named in the footer
  *   FPV CHANNEL NOISE - same layout as the grid; each box = its signal above
  *               the floor averaged over all time since start or the last
  *               reset, shaded from the quietest channel (black) to the
@@ -58,7 +59,7 @@
  *   starts underneath it. Pressing KEY_L + KEY_R together during the splash
  *   opens the Configuration menu; otherwise the page shown last follows
  *   (saved in flash with the spectrum band; the Activity grid the first
- *   time, or always with "Restore page" Off).
+ *   time, or always with "Last page" Off).
  *
  * Configuration: hold KEY_L + KEY_R for 5 s on any page (or press both
  *   during the splash) to open the Configuration menu. It opens on a Help
@@ -81,9 +82,9 @@
  *   to HDZero channels. In HDZero mode, Quietest for HDZero replaces
  *   Quietest Channels (the normal list isn't shown).
  *
- *   KEY_R: Activity -> Spectrum -> Band Scan -> Noise -> Quietest -> IMD-Free
+ *   KEY_R: Activity -> Band Scan -> Spectrum -> Noise -> Quietest -> IMD-Free
  *          -> Activity (HDZero mode: ... Noise -> Quietest for HDZero -> IMD-Free ...)
- *   KEY_L: Activity -> Noise -> Band Scan -> Spectrum -> Activity;
+ *   KEY_L: Activity -> Noise -> Spectrum -> Band Scan -> Activity;
  *          IMD-Free -> Quietest (or Quietest for HDZero) -> Noise
  *
  * Buttons:
@@ -97,7 +98,7 @@
  *   ENTER (short) on either QUIETEST page does nothing
  *   ENTER (short) on SPECTRUM = select the next band button above the graph
  *                             (HDZero mode: bands HDZero can't use are skipped)
- *   ENTER (short) on BAND SCAN = pause / resume the scan
+ *   ENTER (short) on BAND SCAN = hold / release the scan ("Hold" flashes)
  *   ENTER (hold 0.7 s)        = re-learn the noise floor (do it with VTXs off)
  *
  * Arduino IDE note: only setup() and loop() live in this .ino, so the IDE's
@@ -233,6 +234,16 @@
  *       axis ends at "Max MHz"
  *   96  The last page shown (and spectrum band) is restored at start-up
  *       ("Restore page" setting, Controls page, default On)
+ *   97  Band Scan right after Activity (Activity > Band Scan > Spectrum);
+ *       ENTER = Hold / Release with a flashing red "Hold" like IMD-Free;
+ *       "Restore page" setting renamed "Last page"; strongest bar yellow,
+ *       other bars green with brightness by strength; height = span like the
+ *       Spectrum ("Auto range" setting applies to both); Busy level threshold
+ *       (red bars on channel frequencies only, labels); "Peak labels" setting (Band / MHz / Both);
+ *       Backlight moved to the Controls page; every busy channel bar labelled
+ *       (rotated one-line labels centred on their bars, stepped upward from
+ *       the lowest bar, dotted leaders); Auto range also scales the Activity
+ *       grid; footers say "Span auto" when it is On
  */
 
 #include "Scanner.h"
@@ -342,7 +353,7 @@ void loop() {
       actClear(); actInvalidate(); actFooterDirty = true;
     } else if (quietPage()) {               // IMD-Free: hold / release; Quietest pages: nothing
       if (mode == MODE_IMD) imdToggleHold();
-    } else if (mode == MODE_BANDSCAN) {     // pause / resume the scan
+    } else if (mode == MODE_BANDSCAN) {     // hold / release the scan
       bscanTogglePause();
     } else {                                // next band button
       specSetBand(nextBandInButtonOrder(specBand));

@@ -66,8 +66,8 @@ Each source file's header carries the revision number; see `CHANGELOG.md`
 for what changed in each revision.
 
 ## Screens
-Pages in KEY_R order: Activity -> Spectrum -> Band Scan -> Noise -> Quietest (or Quietest for HDZero)
--> IMD-Free -> Activity. KEY_L goes back: Activity -> Noise -> Band Scan -> Spectrum -> Activity, and
+Pages in KEY_R order: Activity -> Band Scan -> Spectrum -> Noise -> Quietest (or Quietest for HDZero)
+-> IMD-Free -> Activity. KEY_L goes back: Activity -> Noise -> Spectrum -> Band Scan -> Activity, and
 IMD-Free -> Quietest (or Quietest for HDZero) -> Noise. In HDZero mode (see below) the Quietest for
 HDZero page replaces Quietest Channels; otherwise only Quietest Channels is shown. Quietest Channels is only reached with KEY_R from Channel Noise, and
 only once there are 60 s of noise history; before that a "Wait NNs"
@@ -76,6 +76,30 @@ pop-up shows and the page stays put.
   above the noise floor right now. In HDZero mode only channels an HDZero VTX
   can use are drawn; the others are left blank (same on
   the Noise grid, whose shading and ranks then cover only those channels).
+- **Band Scan**: the whole band in one sweep, like the ArduVidRx band
+  scanner. It measures every channel frequency plus fill-in points between
+  them (one to three, depending on the gap) and 37 MHz past each end, 91
+  points from 5325 to 5982 MHz, and draws them as bars in 10 MHz bins on a
+  5300-6000 MHz axis. With "Max MHz" set, the axis ends there instead and
+  the bars widen to fill the graph. Bars at or above "Busy level" (6 dB by
+  default, the same setting as the Noise and Quietest pages) are red when
+  the bar's point is a channel frequency (a fill-in point between channels
+  stays green), the rest green, both brighter the stronger they are; the strongest bar is
+  yellow (the footer colour) and the footer names it, e.g. "Peak: F1 5740
+  MHz 22 dB". Every bar on a channel frequency at or above Busy level (the
+  red bars, and the yellow one when it's on a channel) gets a label; peaks
+  between channels don't. Labels are one line of text turned 90
+  degrees (reading upward): the channel ("F1", the default), the frequency
+  ("5740") or both ("F1 5740"), chosen by "Peak labels" on the Display
+  page. Each label is
+  centred on its bar. Adjacent labels step upward from the lowest bar to
+  the highest: each goes just above its bar or above the label already
+  there, with a dotted line down to its bar when lifted, so adjacent busy
+  channels are all named and every label stays in line with its bar. When
+  the top of the graph is full, the label goes in the first free spot
+  below (over the bar). The graph height works like the spectrum's:
+  the span (bars above it clip), or auto range with "Auto range" On. The floor comes from the grid's learned floor (or is learned
+  here if the grid hasn't learned yet).
 - **Spectrum**: continuous sweep of one band in 4 MHz steps (outer channels
   20 MHz beyond the band), with the point nearest each channel moved onto the
   channel's exact frequency, so every channel is measured directly. Channel numbers sit under faint marker lines; white
@@ -84,23 +108,15 @@ pop-up shows and the page stays put.
   strong). Each channel's dB above the floor is printed
   under its number (blank below 3 dB, strongest in amber). The graph's
   height is the span (stronger signals are cut off at the top). With
-  "Auto range" On (Display page, default Off) it ranges itself instead: at
+  "Auto range" On (Display page, default Off; also used by Band Scan and the Activity
+  grid's brightness scale; the footer then shows "Span auto") it
+  ranges itself instead: at
   least the span, and when a signal goes higher the top jumps to fit it
   (rounded up to 10 dB; the axis label shows it), then steps back down
   10 dB at a time after 5 s without needing it. The waterfall always uses
   the span, so its colours mean the same from row to row (strong signals
   just saturate to yellow). Band buttons
   L E R A B F are a row above the graph, as wide as it (selected band in green).
-- **Band Scan**: the whole band in one sweep, like the ArduVidRx band
-  scanner. It measures every channel frequency plus fill-in points between
-  them (one to three, depending on the gap) and 37 MHz past each end, 91
-  points from 5325 to 5982 MHz, and draws them as bars in 10 MHz bins on a
-  5300-6000 MHz axis. With "Max MHz" set, the axis ends there instead and
-  the bars widen to fill the graph. Peaks of 5 dB or more are labelled with their
-  frequency, the strongest bar is green, and the footer names it, e.g.
-  "Peak: F1 5740 MHz 22 dB". The graph height ranges itself like the
-  spectrum's. The floor comes from the grid's learned floor (or is learned
-  here if the grid hasn't learned yet).
 - **FPV Channel Noise**: same layout. Every channel keeps its own long-term
   statistics from start-up (or the last reset): average dB above the floor,
   % of time busy (6 dB or more above the floor by default, "Busy level") and peak. Nothing fades, so
@@ -138,7 +154,7 @@ limits the IMD-Free page to HDZero channels. The HDZero lists can leave out L1-L
 At power-on a splash screen shows for 5 seconds while the radio starts. Press
 KEY_L and KEY_R together during it to open the Configuration menu; otherwise
 the page shown last before power-off or restart follows (the Activity grid the
-first time, or always with "Restore page" Off), on the same spectrum band. You can also open the menu at any time by holding
+first time, or always with "Last page" Off), on the same spectrum band. You can also open the menu at any time by holding
 KEY_L and KEY_R together for 5 seconds on any page.
 
 The menu opens on a Help page that lists what each button does on each
@@ -152,8 +168,8 @@ bar ("Radio Page", "Display Page", ...), then a Save / Discard page. The "Config
 | Scanning | Samples per channel (grids), learn sweeps, spectrum step (MHz), spectrum samples per point |
 | Channel Selection | Busy level (dB); minimum history before Quietest opens (s); L Band Limit (1-8): most L-band channels in the Quietest lists and in each IMD-free set (8 = no limit); IMD min spacing (MHz), IMD use L band, IMD refresh (s) |
 | HDZero | HDZero features, low band L1-L8, E1 and F1 |
-| Display | Span (dB), Spectrum auto range, shading gamma, full-red spread (dB), peak decay, waterfall log curve (0 = linear), moved-channel fade (ms, 0 = off), backlight (%) |
-| Controls | Long press, Configuration hold, splash time, splash combo (ms); Restore page (start on the last page shown, default On); pop-up time, scanning-dot step (ms) |
+| Display | Span (dB), auto range (Activity grid, Spectrum and Band Scan), Band Scan peak labels (Band, MHz, Both), shading gamma, full-red spread (dB), peak decay, waterfall log curve (0 = linear), moved-channel fade (ms, 0 = off) |
+| Controls | Long press, Configuration hold, splash time, splash combo (ms); Last page (start on the last page shown, default On); pop-up time, scanning-dot step (ms), backlight (%) |
 
 - **KEY_L / KEY_R**: move up / down the list (past the end of a page goes to
   the next or previous page).
@@ -179,8 +195,8 @@ bar ("Radio Page", "Display Page", ...), then a Save / Discard page. The "Config
 - **ENTER (short)** on the spectrum: select the next band button. In HDZero
   mode, bands with no HDZero channel (A, B, and L or E when those are off in
   the HDZero settings) are drawn darker grey and skipped.
-- **ENTER (short)** on Band Scan: pause / resume the scan ("Paused" in red
-  while paused).
+- **ENTER (short)** on Band Scan: hold / release the scan (a red "Hold"
+  flashes while held, as on the IMD-Free page).
 - **ENTER (hold 0.7 s)**: re-learn the noise floor (grid: all channels;
   spectrum: current band; Band Scan: its own points). Do it with your VTXs
   off if you can.
@@ -272,38 +288,41 @@ the Configuration menu pages.
 </tr>
 <tr>
 <td align="center"><img src="docs/screenshots/03%20FPV%20Channel%20Activity%20%28HDZero%20mode%29.png" width="320" alt="FPV Channel Activity, HDZero mode"><br>FPV Channel Activity, HDZero mode</td>
-<td align="center"><img src="docs/screenshots/04%20Spectrum%20%28Raceband%29.png" width="320" alt="Spectrum (Raceband) with waterfall"><br>Spectrum (Raceband) with waterfall</td>
+<td align="center"><img src="docs/screenshots/04%20Band%20Scan.png" width="320" alt="Band Scan (busy channels red, labelled)"><br>Band Scan (busy channels red, labelled)</td>
 </tr>
 <tr>
-<td align="center"><img src="docs/screenshots/05%20FPV%20Channel%20Noise.png" width="320" alt="FPV Channel Noise"><br>FPV Channel Noise</td>
-<td align="center"><img src="docs/screenshots/06%20FPV%20Channel%20Noise%20%28HDZero%20mode%29.png" width="320" alt="FPV Channel Noise, HDZero mode"><br>FPV Channel Noise, HDZero mode</td>
+<td align="center"><img src="docs/screenshots/05%20Spectrum%20%28Raceband%29.png" width="320" alt="Spectrum (Raceband) with waterfall"><br>Spectrum (Raceband) with waterfall</td>
+<td align="center"><img src="docs/screenshots/06%20FPV%20Channel%20Noise.png" width="320" alt="FPV Channel Noise"><br>FPV Channel Noise</td>
 </tr>
 <tr>
-<td align="center"><img src="docs/screenshots/07%20FPV%20Channel%20Noise%20with%20Wait%20popup.png" width="320" alt="Wait pop-up (Quietest not ready)"><br>Wait pop-up (Quietest not ready)</td>
-<td align="center"><img src="docs/screenshots/08%20Quietest%20Channels.png" width="320" alt="Quietest Channels"><br>Quietest Channels</td>
+<td align="center"><img src="docs/screenshots/07%20FPV%20Channel%20Noise%20%28HDZero%20mode%29.png" width="320" alt="FPV Channel Noise, HDZero mode"><br>FPV Channel Noise, HDZero mode</td>
+<td align="center"><img src="docs/screenshots/08%20FPV%20Channel%20Noise%20with%20Wait%20popup.png" width="320" alt="Wait pop-up (Quietest not ready)"><br>Wait pop-up (Quietest not ready)</td>
 </tr>
 <tr>
-<td align="center"><img src="docs/screenshots/09%20Quietest%20for%20HDZero.png" width="320" alt="Quietest for HDZero"><br>Quietest for HDZero</td>
-<td align="center"><img src="docs/screenshots/10%20IMD-Free%20Channels.png" width="320" alt="IMD-Free Channels"><br>IMD-Free Channels</td>
+<td align="center"><img src="docs/screenshots/09%20Quietest%20Channels.png" width="320" alt="Quietest Channels"><br>Quietest Channels</td>
+<td align="center"><img src="docs/screenshots/10%20Quietest%20for%20HDZero.png" width="320" alt="Quietest for HDZero"><br>Quietest for HDZero</td>
 </tr>
 <tr>
-<td align="center"><img src="docs/screenshots/11%20IMD-Free%20Channels%20%28HDZero%20mode%29.png" width="320" alt="IMD-Free Channels, HDZero mode"><br>IMD-Free Channels, HDZero mode</td>
-<td align="center"><img src="docs/screenshots/12%20Configuration%20-%20Help.png" width="320" alt="Configuration: Help (opens first)"><br>Configuration: Help (opens first)</td>
+<td align="center"><img src="docs/screenshots/11%20IMD-Free%20Channels.png" width="320" alt="IMD-Free Channels"><br>IMD-Free Channels</td>
+<td align="center"><img src="docs/screenshots/12%20IMD-Free%20Channels%20%28HDZero%20mode%29.png" width="320" alt="IMD-Free Channels, HDZero mode"><br>IMD-Free Channels, HDZero mode</td>
 </tr>
 <tr>
-<td align="center"><img src="docs/screenshots/13%20Configuration%20-%20Radio.png" width="320" alt="Configuration: Radio"><br>Configuration: Radio</td>
-<td align="center"><img src="docs/screenshots/14%20Configuration%20-%20Scanning.png" width="320" alt="Configuration: Scanning"><br>Configuration: Scanning</td>
+<td align="center"><img src="docs/screenshots/13%20Configuration%20-%20Help.png" width="320" alt="Configuration: Help (opens first)"><br>Configuration: Help (opens first)</td>
+<td align="center"><img src="docs/screenshots/14%20Configuration%20-%20Radio.png" width="320" alt="Configuration: Radio"><br>Configuration: Radio</td>
 </tr>
 <tr>
-<td align="center"><img src="docs/screenshots/15%20Configuration%20-%20Channel%20Selection.png" width="320" alt="Configuration: Channel Selection"><br>Configuration: Channel Selection</td>
-<td align="center"><img src="docs/screenshots/16%20Configuration%20-%20HDZero.png" width="320" alt="Configuration: HDZero"><br>Configuration: HDZero</td>
+<td align="center"><img src="docs/screenshots/15%20Configuration%20-%20Scanning.png" width="320" alt="Configuration: Scanning"><br>Configuration: Scanning</td>
+<td align="center"><img src="docs/screenshots/16%20Configuration%20-%20Channel%20Selection.png" width="320" alt="Configuration: Channel Selection"><br>Configuration: Channel Selection</td>
 </tr>
 <tr>
-<td align="center"><img src="docs/screenshots/17%20Configuration%20-%20Display.png" width="320" alt="Configuration: Display"><br>Configuration: Display</td>
-<td align="center"><img src="docs/screenshots/18%20Configuration%20-%20Controls.png" width="320" alt="Configuration: Controls"><br>Configuration: Controls</td>
+<td align="center"><img src="docs/screenshots/17%20Configuration%20-%20HDZero.png" width="320" alt="Configuration: HDZero"><br>Configuration: HDZero</td>
+<td align="center"><img src="docs/screenshots/18%20Configuration%20-%20Display.png" width="320" alt="Configuration: Display"><br>Configuration: Display</td>
 </tr>
 <tr>
-<td align="center"><img src="docs/screenshots/19%20Configuration%20-%20Save%20-%20Discard.png" width="320" alt="Configuration: Save / Discard"><br>Configuration: Save / Discard</td>
-<td align="center"><img src="docs/screenshots/20%20Configuration%20-%20editing%20a%20value.png" width="320" alt="Configuration: editing a value"><br>Configuration: editing a value</td>
+<td align="center"><img src="docs/screenshots/19%20Configuration%20-%20Controls.png" width="320" alt="Configuration: Controls"><br>Configuration: Controls</td>
+<td align="center"><img src="docs/screenshots/20%20Configuration%20-%20Save%20-%20Discard.png" width="320" alt="Configuration: Save / Discard"><br>Configuration: Save / Discard</td>
+</tr>
+<tr>
+<td align="center"><img src="docs/screenshots/21%20Configuration%20-%20editing%20a%20value.png" width="320" alt="Configuration: editing a value"><br>Configuration: editing a value</td>
 </tr>
 </table>

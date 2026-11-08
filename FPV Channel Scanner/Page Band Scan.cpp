@@ -1,14 +1,16 @@
 /*
  * FPV Channel Scanner - Page Band Scan.cpp
- * Revision: 96
+ * Revision: 97
  *
  * Band Scan page, modelled on the ArduVidRx band scanner: one sweep over
  * the whole 5.3-6.0 GHz band, measuring every FPV channel frequency plus
  * fill-in points between them (and 37 MHz past each end), drawn as a bar
  * graph in 10 MHz bins. The graph ends at "Max MHz" (6000 MHz when Off),
  * its bars widened to fill the width. Peaks are labelled with their
- * frequency, the strongest bar is green, and the footer names it ("Peak:
- * F1 5740 MHz 22 dB"). ENTER pauses / resumes the scan.
+ * frequency, the strongest bar is yellow (others green, brighter when
+ * stronger), and the footer names it ("Peak:
+ * F1 5740 MHz 22 dB"). ENTER holds / releases the scan (a red "Hold" flashes
+ * while held, as on the IMD-Free page).
  */
 
 #include "Scanner.h"
@@ -29,14 +31,15 @@ static int16_t bsBinPt0[BS_BINS];        // first point in the bin, -1 = none
 static int16_t bsBinPtN[BS_BINS];        // points in the bin
 static int16_t bsBinNear[BS_BINS];       // empty bin inside the sweep: nearest point, -1 = blank
 static int16_t bsShownH[BS_BINS];        // bar height drawn, -1 = redraw, -3 = grey (blocked)
-static bool    bsShownHot[BS_BINS];
+static int8_t  bsShownKind[BS_BINS];    // colour drawn: 0 green, 1 red (busy), 2 yellow (strongest)
 
 // ---------------------------------------------------------------- peak labels
-struct BsLabel { int16_t x, y, w; uint16_t mhz; };
-static BsLabel bsLbl[BS_BINS];
+struct BsLabel { int16_t x, y, ht, k, barX, barY; uint16_t mhz; };   // vertical text BS_VLBL_W wide, ht tall;
+                                                                    // k = bar's bin, barX/barY = bar's top centre
+static BsLabel bsLbl[2 * BS_BINS];
 static int     bsNLbl = 0;
 
-static int      bsRange = 0;             // graph top, dB above floor (auto range)
+static int      bsRange = 0;             // graph top, dB above floor (span, or auto range)
 static uint32_t bsRangeNeedMs = 0;
 static bool     bsFooterDirty = true;
 
@@ -116,14 +119,16 @@ static void bsDrawAxis() {
   lcdText(2, BS_GY + BS_GH - 18, "dB", 1, C_DIM, C_BG);
 }
 
-// Same auto range as the spectrum: at least the Span setting, grows at once
-// to fit the highest bar, shrinks one step after SPEC_RANGE_HOLD_MS.
+// Same vertical scale as the spectrum: the Span setting (bars above it clip
+// at the top), or with "Auto range" On at least the span, growing at once to
+// fit the highest bar and shrinking one step after SPEC_RANGE_HOLD_MS.
 static bool bsUpdateRange(float maxAbove) {
   int need = cfg.span;
-  if (maxAbove > need) need = min(SPEC_RANGE_MAX, ((int)ceilf(maxAbove / SPEC_RANGE_STEP)) * SPEC_RANGE_STEP);
+  if (cfg.specAutoRange && maxAbove > need) need = min(SPEC_RANGE_MAX, ((int)ceilf(maxAbove / SPEC_RANGE_STEP)) * SPEC_RANGE_STEP);
   uint32_t now = millis();
   int old = bsRange;
-  if (need >= bsRange) { bsRange = need; bsRangeNeedMs = now; }
+  if (!cfg.specAutoRange) bsRange = need;                // fixed at the span
+  else if (need >= bsRange) { bsRange = need; bsRangeNeedMs = now; }
   else if (now - bsRangeNeedMs >= SPEC_RANGE_HOLD_MS) {
     bsRange = max(need, bsRange - SPEC_RANGE_STEP); bsRangeNeedMs = now;
   }
@@ -132,15 +137,26 @@ static bool bsUpdateRange(float maxAbove) {
   return true;
 }
 
-// "ENTER: pause" hint, or a red "Paused" while the scan is paused.
+// While held (ENTER), a red "Hold" flashes about once a second above the
+// hint, as on the IMD-Free page. force = redraw even if unchanged.
+static int bsHoldShown = -1;
+static void bsDrawHold(bool force) {
+  int on = bsPaused && (millis() / 500) % 2 == 0;
+  if (!force && on == bsHoldShown) return;
+  lcdFill(0, BS_HOLD_Y, LCD_W, BS_HINT_Y - BS_HOLD_Y, 0, 0, 0);
+  if (on) lcdText((LCD_W - 4 * 12) / 2, BS_HOLD_Y, "Hold", 2, C_RED, C_BG);
+  bsHoldShown = on;
+}
+
+// Centred "ENTER: Hold" / "ENTER: Release" hint (as on the IMD-Free page),
+// plus the flashing "Hold".
 static void bsDrawHint() {
-  lcdFill(0, BS_HINT_Y, 180, 8, 0, 0, 0);
-  if (bsPaused) {
-    lcdText(4, BS_HINT_Y, "Paused", 1, C_RED, C_BG);
-    lcdText(4 + 6 * 8, BS_HINT_Y, "ENTER: resume", 1, C_DIM, C_BG);
-  } else {
-    lcdText(4, BS_HINT_Y, "ENTER: pause", 1, C_DIM, C_BG);
-  }
+  lcdFill(0, BS_HINT_Y, 220, 8, 0, 0, 0);
+  const char *act = bsPaused ? "Release" : "Hold";
+  int x = (LCD_W - 6 * (7 + (int)strlen(act))) / 2;
+  lcdText(x, BS_HINT_Y, "ENTER:", 1, C_TEXT, C_BG);
+  lcdText(x + 42, BS_HINT_Y, act, 1, C_GOOD, C_BG);
+  bsDrawHold(true);
 }
 
 void bscanDrawStatic() {
@@ -160,7 +176,7 @@ void bscanDrawStatic() {
     lcdFillC(x, BS_GY + BS_GH + 1, 1, 3, C_DIM);
     lcdText(min(x - 12, LCD_W - 24), BS_AXIS_Y, s, 1, C_DIM, C_BG);
   }
-  for (int k = 0; k < BS_BINS; k++) { bsShownH[k] = -1; bsShownHot[k] = false; }
+  for (int k = 0; k < BS_BINS; k++) { bsShownH[k] = -1; bsShownKind[k] = -1; }
   bsNLbl = 0;
   bsFooterDirty = true;
   learnShownPct = -1; scanAnimY = -1;
@@ -185,7 +201,7 @@ void bscanRelearn() {
 void bscanTogglePause() {
   bsPaused = !bsPaused;
   bsDrawHint();
-  Serial.printf("band scan: %s\n", bsPaused ? "paused" : "resumed");
+  Serial.printf("band scan: %s\n", bsPaused ? "hold" : "released");
 }
 
 // One bar: background and grid lines above it, a 1 px gap on its right.
@@ -225,11 +241,36 @@ static void bsDrawFooter(int peakPt, float aboveDb) {
   lcdText(4, BS_FOOT_Y + 2, s, 2, C_ACC, C_BG);
 }
 
+// True if the frequency is an FPV channel (not a fill-in point).
+static bool bsIsChannel(uint16_t mhz) {
+  for (int b = 0; b < NUM_BANDS; b++)
+    for (int c = 0; c < NUM_CH; c++)
+      if (FPV_MHZ[b][c] == mhz) return true;
+  return false;
+}
+
+// Peak label text for the "Peak labels" setting, one line (drawn rotated
+// 90 degrees): Band = channel name(s) ("F1", "R7/F8"; MHz if the point isn't
+// a channel), MHz = "5740", Both = "F1 5740".
+static void bsLabelText(uint16_t mhz, char *buf, int len) {
+  char nm[16];
+  bsChanNames(mhz, nm, sizeof(nm));
+  if (cfg.bsLabel == BS_LBL_MHZ || !nm[0]) snprintf(buf, len, "%u", mhz);
+  else if (cfg.bsLabel == BS_LBL_BOTH)     snprintf(buf, len, "%s %u", nm, mhz);
+  else                                     snprintf(buf, len, "%s", nm);
+}
+
+// Bins a label, or its leader down to its bar, lies over.
+static bool bsLabelCovers(const BsLabel &L, int k) {
+  const int x0 = min((int)L.x, (int)L.barX), x1 = max(L.x + BS_VLBL_W, L.barX + 1);
+  return binX(k) + binW(k) > x0 && binX(k) < x1;
+}
+
 // One sweep of the whole band + redraw of the bars and labels that changed.
 void bscanSweep() {
   static int lastPeakPt = -2, lastAbove = -999;
   static bool lastLearning = false;
-  if (bsPaused) return;
+  if (bsPaused) { bsDrawHold(false); return; }       // held: just flash "Hold"
   const uint32_t learnStart = bsLearnUntil - SPEC_LEARN_SWEEPS;
   const bool learningSweep = bsSweeps < bsLearnUntil;
   float raw[BS_MAX_PTS];
@@ -301,39 +342,72 @@ void bscanSweep() {
       hot = best;
     } }
 
-  // peak labels: ArduVidRx's peak marking, at least BS_LABEL_GAP bins apart
-  int peakBin[BS_BINS], nPeak = 0;
-  { int prevMax = -1, curMax = -1, lastV = 0, curMaxV = BS_PEAK_MIN_DB;
-    for (int k = 0; k < bsBins; k++) {
-      int v = val[k];
-      if (v > lastV && v > curMaxV) { curMaxV = v; curMax = k; }
-      else if (curMax >= 0 && (prevMax < 0 || curMax - prevMax >= BS_LABEL_GAP) && k - curMax >= BS_LABEL_GAP) {
-        int j = curMax;
-        while (j < bsBins - 1 && val[j + 1] == curMaxV) j++;
-        if (j - curMax >= 3) curMax += (j - curMax) / 2;
-        peakBin[nPeak++] = curMax;
-        prevMax = curMax; curMax = -1; curMaxV = BS_PEAK_MIN_DB;
-      }
-      lastV = v;
-    }
-    if (curMax >= 0 && (prevMax < 0 || curMax - prevMax >= BS_LABEL_GAP)) peakBin[nPeak++] = curMax; }
+  int nPeak = 0;                                     // labels placed (below)
 
   // bar heights, then the labels they need
   int h[BS_BINS];
   for (int k = 0; k < bsBins; k++)
     h[k] = (binPt[k] < 0 || binBlocked[k]) ? 0 : constrain((int)lroundf(bsAbove[binPt[k]] * BS_GH / bsRange), 0, BS_GH);
-  BsLabel lbl[BS_BINS];
-  for (int n = 0; n < nPeak; n++) {
-    int k = peakBin[n];
-    BsLabel &L = lbl[n];
-    L.mhz = bsMhz[binPt[k]];
-    L.w = 24;
-    L.x = constrain(binX(k) + binW(k) / 2 - L.w / 2, BS_GX, BS_GX + BS_GW - L.w);
-    L.y = max(BS_GY + 1, BS_GY + BS_GH - h[k] - 10);
+  // Labels: every bar on a channel frequency at or above Busy level (the red
+  // bars, and the yellow one when it's on a channel). Peaks between channels
+  // aren't labelled. Placed strongest first:
+  // just above the bar if free, else stacked higher (then lower, over other
+  // bars) so adjacent bars all keep a label; a lifted label gets a dotted
+  // leader down to its bar.
+  int cand[2 * BS_BINS], nCand = 0;
+  for (int k = 0; k < bsBins; k++)                  // channel bars only: a peak between
+    if (!binBlocked[k] && binPt[k] >= 0 && val[k] >= BS_PEAK_MIN_DB &&   // channels gets no label
+        bsIsChannel(bsMhz[binPt[k]])) cand[nCand++] = k;
+  for (int a = 0; a < nCand; a++)                    // one label per frequency
+    for (int b = a + 1; b < nCand; b++)
+      if (cand[b] >= 0 && cand[a] >= 0 && bsMhz[binPt[cand[a]]] == bsMhz[binPt[cand[b]]]) {
+        if (h[cand[b]] > h[cand[a]]) cand[a] = cand[b];
+        cand[b] = -1;
+      }
+  { int m = 0; for (int a = 0; a < nCand; a++) if (cand[a] >= 0) cand[m++] = cand[a]; nCand = m; }
+  for (int a = 1; a < nCand; a++) {                  // lowest bar first (ties: left first)
+    int v = cand[a], b = a - 1;
+    while (b >= 0 && (h[cand[b]] > h[v] || (h[cand[b]] == h[v] && cand[b] > v))) { cand[b + 1] = cand[b]; b--; }
+    cand[b + 1] = v;
+  }
+  BsLabel lbl[2 * BS_BINS];
+  for (int a = 0; a < nCand; a++) {
+    int k = cand[a];
+    BsLabel L;
+    L.k = k; L.mhz = bsMhz[binPt[k]];
+    char t[24];
+    bsLabelText(L.mhz, t, sizeof(t));
+    L.ht = 6 * (int)strlen(t);
+    L.barX = binX(k) + binW(k) / 2 - 1;
+    L.barY = BS_GY + BS_GH - h[k];
+    // Centred on its bar. Labels go lowest bar first, each just above its
+    // bar, or above any label already there, so adjacent labels step upward
+    // from the lowest bar to the highest. With no room left at the top, the
+    // first free spot below that (over the bar) is used.
+    const int x = constrain(L.barX - BS_VLBL_W / 2 + 1, BS_GX, BS_GX + BS_GW - BS_VLBL_W);
+    const int want = L.barY - L.ht - 2;
+    auto hitAt = [&](int y) -> int {                 // index of a placed label in the way, -1 = free
+      for (int n = 0; n < nPeak; n++) {
+        const BsLabel &o = lbl[n];
+        if (x < o.x + BS_VLBL_W + 1 && o.x < x + BS_VLBL_W + 1 && y < o.y + o.ht + 2 && o.y < y + L.ht + 2) return n;
+      }
+      return -1;
+    };
+    int bx = x, by = min(want, BS_GY + BS_GH - L.ht);
+    for (int n; by >= BS_GY + 1 && (n = hitAt(by)) >= 0; ) by = lbl[n].y - L.ht - 2;
+    if (by < BS_GY + 1) {                            // top full: first free spot below
+      by = -1;
+      for (int y = max(BS_GY + 1, want); y <= BS_GY + BS_GH - L.ht; y++) if (hitAt(y) < 0) { by = y; break; }
+      if (by < 0) bx = -1;
+    }
+    if (bx < 0) continue;                            // no room anywhere: no label
+    L.x = bx; L.y = by;
+    lbl[nPeak++] = L;
   }
   bool lblChanged = nPeak != bsNLbl || rangeChanged;
   for (int n = 0; n < nPeak && !lblChanged; n++)
-    if (lbl[n].mhz != bsLbl[n].mhz || lbl[n].x != bsLbl[n].x || lbl[n].y != bsLbl[n].y) lblChanged = true;
+    if (lbl[n].mhz != bsLbl[n].mhz || lbl[n].x != bsLbl[n].x || lbl[n].y != bsLbl[n].y ||
+        lbl[n].ht != bsLbl[n].ht || lbl[n].barY != bsLbl[n].barY) lblChanged = true;
 
   // redraw changed bars, and bars under a label that moved or went away
   bool drawn[BS_BINS];
@@ -341,27 +415,41 @@ void bscanSweep() {
     bool under = false;
     if (lblChanged)
       for (int n = 0; n < bsNLbl; n++)
-        if (binX(k) + binW(k) > bsLbl[n].x && binX(k) < bsLbl[n].x + bsLbl[n].w) { under = true; break; }
+        if (bsLabelCovers(bsLbl[n], k)) { under = true; break; }
     drawn[k] = false;
     if (binBlocked[k]) {
       if (bsShownH[k] != -3 || under) { lcdFillC(binX(k), BS_GY, binW(k), BS_GH, C_BLOCKED); bsShownH[k] = -3; drawn[k] = true; }
       continue;
     }
     bool isHot = k == hot;
-    if (h[k] == bsShownH[k] && isHot == bsShownHot[k] && !under) continue;
-    bsDrawBin(k, h[k], isHot ? C_GOOD : BS_C_BAR);
-    bsShownH[k] = h[k]; bsShownHot[k] = isHot; drawn[k] = true;
+    const int kind = isHot ? 2 : (val[k] >= BS_PEAK_MIN_DB && bsIsChannel(bsMhz[binPt[k]])) ? 1 : 0;
+    if (h[k] == bsShownH[k] && kind == bsShownKind[k] && !under) continue;
+    // strongest bar yellow (like the footer); at or above Busy level and on a
+    // channel frequency red (a fill-in point between channels stays green);
+    // the rest green like the Activity grid; red and green brighter the taller
+    // (stronger) they are, never quite black
+    const float lvl = BS_BAR_MIN + (1.0f - BS_BAR_MIN) * h[k] / BS_GH;
+    bsDrawBin(k, h[k], kind == 2 ? C_ACC : scaleColor(kind == 1 ? BS_C_BUSY : C_HOT, lvl));
+    bsShownH[k] = h[k]; bsShownKind[k] = kind; drawn[k] = true;
     if ((k & 15) == 0) pollInput();
   }
-  // labels go on top; redraw one when it changed or a bar under it was drawn
-  for (int n = 0; n < nPeak; n++) {
-    BsLabel &L = lbl[n];
-    bool need = lblChanged;
+  // leaders, then labels on top. If anything under a label or a leader was
+  // redrawn, all of them are redrawn (they can overlap each other).
+  bool need = lblChanged;
+  for (int n = 0; n < nPeak && !need; n++)
     for (int k = 0; k < bsBins && !need; k++)
-      if (drawn[k] && binX(k) + binW(k) > L.x && binX(k) < L.x + L.w) need = true;
-    if (!need) continue;
-    char s[6]; snprintf(s, sizeof(s), "%u", L.mhz);
-    lcdText(L.x, L.y, s, 1, C_TEXT, C_BG);
+      if (drawn[k] && bsLabelCovers(lbl[n], k)) need = true;
+  if (need) {
+    for (int n = 0; n < nPeak; n++) {                // dotted leader: label foot down to its bar
+      const BsLabel &L = lbl[n];
+      for (int y = L.y + L.ht + 2; y < L.barY - 1; y += 2) lcdFillC(L.barX, y, 1, 1, C_DIM);
+    }
+    for (int n = 0; n < nPeak; n++) {                // text rotated 90 degrees, reads upward
+      const BsLabel &L = lbl[n];
+      char t[24];
+      bsLabelText(L.mhz, t, sizeof(t));
+      lcdTextV(L.x, L.y, t, C_TEXT, C_BG);
+    }
   }
   for (int n = 0; n < nPeak; n++) bsLbl[n] = lbl[n];
   bsNLbl = nPeak;

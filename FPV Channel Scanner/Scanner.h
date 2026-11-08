@@ -1,6 +1,6 @@
 /*
  * FPV Channel Scanner - Scanner.h
- * Revision: 96
+ * Revision: 97
  *
  * Shared declarations: every global variable (defined in State.cpp) and
  * every function, grouped by the file that defines it. Each .cpp file
@@ -128,6 +128,7 @@ void lcdFillC(int x, int y, int w, int h, RGB c);
 void lcdText(int x, int y, const char *s, int scale, RGB fg, RGB bg);
 void lcdDrawRgbRow(int x, int y, int w, const uint8_t *rgb);
 void lcdTextSized(int x, int y, const char *s, int cw, int ch, RGB fg, RGB bg);
+void lcdTextV(int x, int y, const char *s, RGB fg, RGB bg);   // rotated 90 degrees, reads upward
 RGB scaleColor(RGB c, float k);
 
 // ---------------------------------------------------------------- Input.cpp

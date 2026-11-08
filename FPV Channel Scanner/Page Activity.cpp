@@ -1,6 +1,6 @@
 /*
  * FPV Channel Scanner - Page Activity.cpp
- * Revision: 96
+ * Revision: 97
  *
  * FPV Channel Activity page (the live grid) and the grid sweep that
  * also feeds the Channel Noise and Quietest Channels pages.
@@ -135,11 +135,25 @@ void gridSweep() {
     }
   bool havePeak = best >= 3.0f && !learning;
 
+  // Brightness scale: the span, or with "Auto range" On at least the span,
+  // growing at once to fit the strongest box (rounded up to 10 dB) and
+  // shrinking one step after SPEC_RANGE_HOLD_MS, as on the Spectrum page.
+  static int gridRange = 0;
+  static uint32_t gridRangeNeedMs = 0;
+  { int need = cfg.span;
+    if (cfg.specAutoRange && !learning && best > need)
+      need = min(SPEC_RANGE_MAX, ((int)ceilf(best / SPEC_RANGE_STEP)) * SPEC_RANGE_STEP);
+    uint32_t now = millis();
+    if (!cfg.specAutoRange || need >= gridRange) { gridRange = need; gridRangeNeedMs = now; }
+    else if (now - gridRangeNeedMs >= SPEC_RANGE_HOLD_MS) {
+      gridRange = max(need, gridRange - SPEC_RANGE_STEP); gridRangeNeedMs = now;
+    } }
+
   for (int b = 0; b < NUM_BANDS; b++)
     for (int c = 0; c < NUM_CH; c++) {
       float above = learning ? 0 : gridSmooth[b][c] - gridFloor[b][c];
       if (isnan(above) || gridFloor[b][c] == 0) above = 0;
-      int level = constrain((int)lroundf(above * 32.0f / cfg.span), 0, 32);
+      int level = constrain((int)lroundf(above * 32.0f / gridRange), 0, 32);
       if (chanNoData(b, c)) level = -2;            // no live data: "--"
       bool peak = havePeak && b == pb && c == pc;
       if (level != gridShownLevel[b][c] || peak != gridShownPeak[b][c]) {

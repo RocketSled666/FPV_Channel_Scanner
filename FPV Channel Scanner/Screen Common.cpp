@@ -1,6 +1,6 @@
 /*
  * FPV Channel Scanner - Screen Common.cpp
- * Revision: 96
+ * Revision: 97
  *
  * Drawing shared by several pages (grid frame, Scanning dots, span /
  * history label, learning progress, title status), the pop-up, and
@@ -57,6 +57,7 @@ void drawSpanLabel() {
     unsigned long t = (unsigned long)actTrackedS;
     snprintf(s, sizeof(s), "History %lu:%02lu:%02lu:%02lu", t / 86400, t / 3600 % 24, t / 60 % 60, t % 60);
   }
+  else if (cfg.specAutoRange) snprintf(s, sizeof(s), "Span auto");   // "Auto range" On
   else snprintf(s, sizeof(s), "Span %d dB", cfg.span);
   lcdText(LCD_W - 6 * (int)strlen(s) - 4, FOOT_Y + 20, s, 1, C_DIM, C_BG);
 }
@@ -112,9 +113,9 @@ void drawNoDataBox(int x, int y, int b, int c) {
 ScreenMode pageAfter(ScreenMode m, int dir) {
   if (dir > 0) {
     switch (m) {
-      case MODE_GRID:     return MODE_SPECTRUM;
-      case MODE_SPECTRUM: return MODE_BANDSCAN;
-      case MODE_BANDSCAN: return MODE_ACTIVITY;
+      case MODE_GRID:     return MODE_BANDSCAN;
+      case MODE_BANDSCAN: return MODE_SPECTRUM;
+      case MODE_SPECTRUM: return MODE_ACTIVITY;
       case MODE_ACTIVITY: return cfg.hdzero ? MODE_HDZERO : MODE_QUIET;   // HDZero mode: HDZero list only
       case MODE_QUIET:    return MODE_IMD;
       case MODE_HDZERO:   return MODE_IMD;
@@ -123,9 +124,9 @@ ScreenMode pageAfter(ScreenMode m, int dir) {
   }
   switch (m) {
     case MODE_GRID:     return MODE_ACTIVITY;     // skips both quietest lists
-    case MODE_SPECTRUM: return MODE_GRID;
-    case MODE_BANDSCAN: return MODE_SPECTRUM;
-    case MODE_ACTIVITY: return MODE_BANDSCAN;
+    case MODE_BANDSCAN: return MODE_GRID;
+    case MODE_SPECTRUM: return MODE_BANDSCAN;
+    case MODE_ACTIVITY: return MODE_SPECTRUM;
     case MODE_IMD:      return cfg.hdzero ? MODE_HDZERO : MODE_QUIET;
     default:            return MODE_ACTIVITY;     // from either Quietest list
   }
