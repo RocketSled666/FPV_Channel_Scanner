@@ -1,6 +1,6 @@
 /*
  * FPV Channel Scanner - Config.h
- * Revision: 97
+ * Revision: 100
  *
  * Hardware pins, tuning constants, shared types, frequency table, colors
  * and the undocumented ESP32-C5 radio access used by the scanner.
@@ -10,7 +10,7 @@
 
 // Firmware revision shown on the Save / Discard page. Keep it equal to the
 // "Revision:" line in the file headers.
-#define FW_REVISION 97
+#define FW_REVISION 100
 
 #include <Arduino.h>
 #include <Wire.h>
@@ -44,9 +44,12 @@ struct Settings {
   int gamma100;      // noise page shading curve, hundredths (55 = 0.55)
   int redSpread10;   // noise page: quietest-to-busiest spread for full red, tenths of dB
   int quietMinS;     // noise history (s) needed before the Quietest page opens
-  int hdzero;        // HDZero features on/off
+  int vidSys;        // video system: VS_ANALOG (all channels), VS_HDZERO, VS_DJI, VS_WALKSNAIL, VS_OPEN
   int hdzLowBand;    // HDZero lists/grids include L1-L8
   int hdzE1F1;       // HDZero lists/grids include E1 and F1
+  int djiModel;      // DJI_V1, DJI_O3, DJI_O4 or DJI_O4_RACE
+  int fccChannels;   // DJI / Walksnail: FCC (unlocked) channel set instead of stock
+  int wsRace;        // Walksnail: race mode (R1-R8)
   int backlight;     // LCD backlight, %
   int imdMinSep;     // IMD-free page: smallest gap allowed between two channels, MHz
   int imdLowBand;    // IMD-free page: may use L1-L8 (outside HDZero mode)
@@ -173,6 +176,17 @@ struct ButtonState {
 #define MAX_STALL_STATS   16
 #define GRID_LEARN_SWEEPS (cfg.learnSweeps)       // sweeps spent learning the noise floor
 #define SPEC_LEARN_SWEEPS (cfg.learnSweeps)
+// Shared noise floor by frequency (1 MHz steps from FLOOR_LO_MHZ): every page
+// stores its learned floor here and seeds from it when shown, so a floor
+// learned on one page is used by the others. A frequency with no stored
+// value takes one interpolated from stored values within FLOOR_REACH_MHZ
+// either side (one side only: within half that). A page learns again only
+// when ENTER is held, or when more than 1 / FLOOR_LEARN_DIV of its points
+// have no floor to start from (e.g. a band no page has measured yet).
+#define FLOOR_LO_MHZ      5300
+#define FLOOR_N           700
+#define FLOOR_REACH_MHZ   40
+#define FLOOR_LEARN_DIV   8
 
 // ---------------------------------------------------------------- FPV table
 #define NUM_BANDS 6
@@ -180,6 +194,36 @@ struct ButtonState {
 static const char BAND_NAME[NUM_BANDS] = { 'A', 'B', 'E', 'F', 'R', 'L' };
 static const char * const BAND_LONG[NUM_BANDS] = { "Boscam A", "Boscam B", "Boscam E",
                                             "Fatshark", "Raceband", "Lowband" };
+// ---------------------------------------------------------------- video systems
+// "Video system" setting: which digital system's channels the grids, the
+// Quietest list and the IMD-free sets are limited to (VS_ANALOG = all 48).
+// A system channel that isn't on an analog frequency uses the nearest
+// measured channel within SYS_MATCH_MHZ (e.g. DJI O3 5669 MHz -> E3 5665).
+// Sources: HDZero docs (below); DJI / Walksnail / OpenIPC 20 MHz channel sets
+// from the Skwad FPV frequency guide (skwad.atxfpv.org/freq-guide.html).
+enum VidSys { VS_ANALOG = 0, VS_HDZERO = 1, VS_DJI = 2, VS_WALKSNAIL = 3, VS_OPEN = 4 };
+#define DJI_V1          0     // DJI V1 goggles / Vista air units
+#define DJI_O3          1
+#define DJI_O4          2
+#define DJI_O4_RACE     3     // O4 race mode (Goggles 3 / N3): R1-R8
+#define SYS_MATCH_MHZ   6     // a system channel uses a measured channel this close
+#define SYS_MAX_CH      32
+
+// DJI V1 / Vista and Walksnail Avatar (standard mode): FCC CH1-CH8; stock
+// (CE) is CH3, CH4, CH5 and CH8.
+static const uint16_t V1_MHZ[8]     = { 5660, 5695, 5735, 5770, 5805, 5878, 5914, 5839 };
+static const bool     V1_STOCK[8]   = { 0, 0, 1, 1, 1, 0, 0, 1 };
+// DJI O3 / O4, 20 MHz, FCC channels in frequency order (named CH1..CH7 here),
+// and which of them the stock (CE) set keeps.
+static const uint16_t O3_MHZ[7]     = { 5669, 5705, 5769, 5805, 5840, 5876, 5912 };
+static const bool     O3_STOCK[7]   = { 0, 0, 1, 1, 1, 0, 0 };
+static const uint16_t O4_MHZ[7]     = { 5669, 5705, 5741, 5769, 5790, 5815, 5876 };
+static const bool     O4_STOCK[7]   = { 0, 0, 0, 1, 1, 1, 0 };
+// OpenIPC (also OpenHD, Ruby): 20 MHz 5 GHz Wi-Fi channels; only
+// the ones within SYS_MATCH_MHZ of a measured channel are used.
+static const uint8_t  WIFI_CH[] = { 36, 40, 44, 48, 52, 56, 60, 64, 100, 104, 108, 112, 116, 120, 124, 128,
+                                    132, 136, 140, 144, 149, 153, 157, 161, 165, 169, 173, 177 };
+
 // Channels an HDZero VTX can be set to (same band order as FPV_MHZ). The
 // settings can drop L1-L8 and E1/F1 from this; use hdzeroOk(), not the table.
 // Channels an HDZero VTX can be set to:
@@ -239,7 +283,7 @@ extern "C" void     phy_i2c_writeReg(unsigned block, unsigned host, unsigned reg
 #define GRID_X    34
 #define GRID_Y    46
 #define CELL_W    34
-#define CELL_H    38
+#define CELL_H    35
 #define CELL_GAP  2
 #define FOOT_Y    (GRID_Y + NUM_BANDS * (CELL_H + CELL_GAP) + 2)
 // spectrum
@@ -247,7 +291,7 @@ extern "C" void     phy_i2c_writeReg(unsigned block, unsigned host, unsigned reg
 #define BTN_Y     23                 // band buttons, under the title
 #define GY        46                 // graph top, under the band buttons
 #define GW        286                // graph width  (px)
-#define GH        186                // graph height (px)
+#define GH        168                // graph height (px)
 #define WF_H      31                 // waterfall height (px) = sweeps of history
 #define C_BLOCKED  RGB{ 28, 28, 28 }   // spectrum columns above "Max MHz"
 #define SPEC_RANGE_STEP    10        // spectrum auto range: rounded up to this (dB)...
@@ -259,22 +303,24 @@ extern "C" void     phy_i2c_writeReg(unsigned block, unsigned host, unsigned reg
 #define BTN_H     19                 // band button height
 #define BTN_W     43                 // 6 x 43 + 5 x 6 = 288 = graph box width (GW + 2)
 #define BTN_GAP   6
-#define SPEC_FOOT_Y 290
+#define SPEC_FOOT_Y FOOT_Y              // same footer rows as the grid pages
 // band scan
 #define BS_MAX_PTS     128               // sweep points (91 with the standard table)
 #define BS_EDGE_MHZ    37                // sweep starts / ends this far past the outer channels
 #define BS_LO_MHZ      5300              // graph left edge
 #define BS_BIN_MHZ     10                // one bar per 10 MHz
 #define BS_BINS        70                // most bars, 5300-6000 MHz (fewer below "Max MHz")
-#define BS_GX          34                // graph left
-#define BS_GW          280               // graph width (px); bar pitch BS_GW / bars, 1 px gap
-#define BS_GY          30                // graph top
-#define BS_GH          216               // graph height (px)
+#define WF_LEVELS      64                // waterfall colour steps (Spectrum and Band Scan)
+#define WF_BLOCKED     255               // waterfall cell above "Max MHz": drawn grey
+#define BS_GX          GX                // graph: same box as the Spectrum page
+#define BS_GW          GW                // graph width (px); bar pitch BS_GW / bars, 1 px gap
+#define BS_GY          GY                // graph top
+#define BS_GH          GH                // graph height (px); waterfall at WF_Y under it, as on the Spectrum
 #define BS_GRID_N      4                 // grid lines at quarters of the range
-#define BS_AXIS_Y      (BS_GY + BS_GH + 5)   // MHz labels under the graph
-#define BS_FOOT_Y      266               // "Peak: ..." line
-#define BS_HOLD_Y      294               // flashing red "Hold" while held (16 px, ends above the hint)
-#define BS_HINT_Y      310               // "ENTER: Hold" / "ENTER: Release"
+#define BS_AXIS_Y      CH_LBL_Y          // MHz labels under the waterfall (where the Spectrum has channel numbers)
+#define BS_FOOT_Y      SPEC_FOOT_Y       // "Peak: ..." line
+#define LEGEND_Y       (LCD_H - 18)      // "Long press ENTER: ..." legend, just above the button hints
+#define HINT_Y         (LCD_H - 8)       // button hints "Left: ...  ENTER: ...  Right: ...", bottom line of every page
 #define BS_PEAK_MIN_DB ((int)cfg.busyDb)  // Busy level: bars this far above the floor turn red and get a label
 #define BS_LBL_BAND    0                 // "Peak labels": channel name ("F1"; MHz if none)
 #define BS_LBL_MHZ     1                 //   frequency ("5740")
@@ -296,13 +342,14 @@ static const RGB C_RED   = { 255,   0,   0 };  // full-intensity activity color
 static const RGB C_RANK  = { 160, 160, 160 };  // rank numbers on the noise page
 static const RGB C_GOOD  = {  40, 220,  80 };  // IMD score 100
 static const RGB C_HDZ   = {  40, 120, 255 };  // HDZero blue: "HDZ" marker, menu title bar, splash hint
+static const RGB C_KEYACT = {  90, 170, 255 };  // what a button does: hints, long press legend, Help page
 
 // ---------------------------------------------------------------- layout / UI constants
 // (moved here from the page code when the sketch was split into files)
 #define SCAN_DOT_MS ((uint32_t)cfg.scanDotMs)  // dot animation step (User Interface page)
 #define LEARN_BAR_W 240
 #define QUIET_Y0     34      // first row
-#define QUIET_PITCH  31      // row spacing
+#define QUIET_PITCH  30      // row spacing
 #define QUIET_COL_W  158
 // IMD-free page
 #define IMD_COLS     4       // columns for 3, 4, 5 and 6 pilots
@@ -314,7 +361,6 @@ static const RGB C_HDZ   = {  40, 120, 255 };  // HDZero blue: "HDZ" marker, men
 #define IMD_PITCH    30      // channel row spacing (scale-3 text)
 #define IMD_SCORE_Y  (IMD_Y0 + IMD_MAX_N * IMD_PITCH + 2)   // "IMD 100" under each column
 #define IMD_HOLD_Y   252     // flashing "Hold" under the IMD table
-#define IMD_HINT_Y   274     // "ENTER: Hold / Release" hint
 #define IMD_NEAR_MHZ 35      // an IMD product this close to a channel in use hurts it
 #define IMD_REFRESH_MS ((uint32_t)cfg.imdRefreshS * 1000u)  // re-pick with the latest noise history this often (User Interface page)
 #define MOVE_FADE_MS ((uint32_t)cfg.moveFadeMs)  // Quietest / IMD pages: a channel that moves shows red, fading back over this (User Interface page)

@@ -1,6 +1,6 @@
 /*
  * FPV Channel Scanner - Screen Common.cpp
- * Revision: 97
+ * Revision: 100
  *
  * Drawing shared by several pages (grid frame, Scanning dots, span /
  * history label, learning progress, title status), the pop-up, and
@@ -13,6 +13,7 @@
 void drawGridFrame(const char *title, RGB titleColor) {
   lcdFill(0, 0, LCD_W, LCD_H, 0, 0, 0);
   lcdText(4, 4, title, 2, titleColor, C_BG);
+  drawPageHints();                                 // button hints, bottom line
   for (int c = 0; c < NUM_CH; c++) {
     char s[2] = { (char)('1' + c), 0 };
     lcdText(GRID_X + c * (CELL_W + CELL_GAP) + (CELL_W - 12) / 2, HDR_Y, s, 2, C_DIM, C_BG);
@@ -24,7 +25,7 @@ void drawGridFrame(const char *title, RGB titleColor) {
     char s[2] = { BAND_NAME[btnOrder[r]], 0 };
     lcdText(8, GRID_Y + r * (CELL_H + CELL_GAP) + (CELL_H - 24) / 2, s, 3, C_TEXT, C_BG);
   }
-  if (cfg.hdzero) lcdText(4, HDR_Y + 4, "HDZ", 1, C_HDZ, C_BG);   // mode indicator
+  if (sysOn()) lcdText(4, HDR_Y + 4, sysTag(), 1, C_HDZ, C_BG);   // video system marker
   learnShownPct = -1; scanAnimY = -1;
 }
 
@@ -67,9 +68,9 @@ void drawSpanLabel() {
 void drawLearnProgress(int footY, int pct) {
   pct = constrain(pct, 0, 100);
   if (learnShownY != footY || learnShownPct < 0) {
-    lcdFill(0, footY, LCD_W, LCD_H - footY, 0, 0, 0);
-    lcdFillC(4, footY + 20, LEARN_BAR_W + 4, 10, C_DIM);      // bar outline
-    lcdFill(6, footY + 22, LEARN_BAR_W, 6, 0, 0, 0);
+    lcdFill(0, footY, LCD_W, LEGEND_Y - footY, 0, 0, 0);
+    lcdFillC(4, footY + 20, LEARN_BAR_W + 4, 8, C_DIM);       // bar outline
+    lcdFill(6, footY + 22, LEARN_BAR_W, 4, 0, 0, 0);
     drawSpanLabel();
     learnShownPct = -1; scanAnimY = -1;
   }
@@ -78,8 +79,8 @@ void drawLearnProgress(int footY, int pct) {
   snprintf(s, sizeof(s), "Learning %3d%%", pct);
   lcdText(4, footY + 2, s, 2, C_ACC, C_BG);
   int w = LEARN_BAR_W * pct / 100;
-  lcdFillC(6, footY + 22, w, 6, C_ACC);
-  lcdFill(6 + w, footY + 22, LEARN_BAR_W - w, 6, 0, 0, 0);
+  lcdFillC(6, footY + 22, w, 4, C_ACC);
+  lcdFill(6 + w, footY + 22, LEARN_BAR_W - w, 4, 0, 0, 0);
   learnShownPct = pct; learnShownY = footY;
 }
 
@@ -116,7 +117,7 @@ ScreenMode pageAfter(ScreenMode m, int dir) {
       case MODE_GRID:     return MODE_BANDSCAN;
       case MODE_BANDSCAN: return MODE_SPECTRUM;
       case MODE_SPECTRUM: return MODE_ACTIVITY;
-      case MODE_ACTIVITY: return cfg.hdzero ? MODE_HDZERO : MODE_QUIET;   // HDZero mode: HDZero list only
+      case MODE_ACTIVITY: return sysOn() ? MODE_HDZERO : MODE_QUIET;   // video system: its list only
       case MODE_QUIET:    return MODE_IMD;
       case MODE_HDZERO:   return MODE_IMD;
       default:            return MODE_GRID;       // from IMD-Free
@@ -127,7 +128,7 @@ ScreenMode pageAfter(ScreenMode m, int dir) {
     case MODE_BANDSCAN: return MODE_GRID;
     case MODE_SPECTRUM: return MODE_BANDSCAN;
     case MODE_ACTIVITY: return MODE_SPECTRUM;
-    case MODE_IMD:      return cfg.hdzero ? MODE_HDZERO : MODE_QUIET;
+    case MODE_IMD:      return sysOn() ? MODE_HDZERO : MODE_QUIET;
     default:            return MODE_ACTIVITY;     // from either Quietest list
   }
 }
@@ -144,6 +145,12 @@ void showPopup(const char *msg) {
 }
 
 void enterMode(ScreenMode m) {
+  // Coming back to the grid pages from another page: take the shared floor
+  // (it may have been refined there); among the grid pages it carries over.
+  static bool gridLive = false;
+  const bool grid = m == MODE_GRID || m == MODE_ACTIVITY || m == MODE_QUIET || m == MODE_HDZERO || m == MODE_IMD;
+  if (grid && !gridLive) gridSeed();
+  gridLive = grid;
   mode = m;
   popupUntilMs = 0;
   if (mode == MODE_GRID) {
@@ -159,4 +166,58 @@ void enterMode(ScreenMode m) {
     specDrawStatic();
   }
   saveLastPage();
+}
+
+// Button hints on the bottom line of every page, in key order: "Left:" at
+// the left edge, "ENTER:" centred between, "Right:" against the right edge.
+// Key names in white, actions in blue.
+// "Long press ENTER: <what>", centred just above the button hints; key in
+// white, action in blue like the hints.
+void drawLongPressLegend(const char *what) {
+  static const char KEY[] = "Long press ENTER: ";
+  int x = (LCD_W - 6 * (int)(strlen(KEY) + strlen(what))) / 2;
+  lcdFill(0, LEGEND_Y, LCD_W, 8, 0, 0, 0);
+  lcdText(x, LEGEND_Y, KEY, 1, C_TEXT, C_BG);
+  lcdText(x + 6 * (int)strlen(KEY), LEGEND_Y, what, 1, C_KEYACT, C_BG);
+}
+
+void drawHintLine(const char *l, const char *e, const char *r) {
+  lcdFill(0, HINT_Y, LCD_W, LCD_H - HINT_Y, 0, 0, 0);
+  int leftEnd = 4 + 6 * (6 + (int)strlen(l));
+  int xr = LCD_W - 4 - 6 * (7 + (int)strlen(r));
+  int xe = (leftEnd + xr - 6 * (7 + (int)strlen(e))) / 2;
+  lcdText(4,  HINT_Y, "Left:", 1, C_TEXT, C_BG);   lcdText(4 + 36,  HINT_Y, l, 1, C_KEYACT, C_BG);
+  lcdText(xe, HINT_Y, "ENTER:", 1, C_TEXT, C_BG);  lcdText(xe + 42, HINT_Y, e, 1, C_KEYACT, C_BG);
+  lcdText(xr, HINT_Y, "Right:", 1, C_TEXT, C_BG);  lcdText(xr + 42, HINT_Y, r, 1, C_KEYACT, C_BG);
+}
+
+static const char *pageShortName(ScreenMode m) {
+  switch (m) {
+    case MODE_GRID:     return "Activity";
+    case MODE_BANDSCAN: return "Band Scan";
+    case MODE_SPECTRUM: return "Spectrum";
+    case MODE_ACTIVITY: return "Noise";
+    case MODE_QUIET:    return "Quietest";
+    case MODE_HDZERO:   return "Quietest";
+    default:            return "IMD-Free";
+  }
+}
+
+extern bool bsPaused, imdHold;
+// Scanner pages: Left / Right name the page they go to; ENTER says what a
+// short press does here.
+void drawPageHints() {
+  const char *e;
+  switch (mode) {
+    case MODE_GRID:     e = "Span"; break;
+    case MODE_SPECTRUM: e = "Next band"; break;
+    case MODE_BANDSCAN: e = bsPaused ? "Release" : "Hold"; break;
+    case MODE_IMD:      e = imdHold  ? "Release" : "Hold"; break;
+    default:            e = "Clear"; break;           // Noise and both Quietest lists
+  }
+  drawHintLine(pageShortName(pageAfter(mode, -1)), e, pageShortName(pageAfter(mode, +1)));
+  // IMD-Free while held: long press switches the ranking; elsewhere it re-learns the floor
+  extern bool imdBestFirst;
+  drawLongPressLegend(mode == MODE_IMD && imdHold ? (imdBestFirst ? "Quietest first" : "Best IMD first")
+                                                  : "Re-learn floor");
 }

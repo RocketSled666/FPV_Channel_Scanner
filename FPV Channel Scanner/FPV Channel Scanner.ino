@@ -1,6 +1,6 @@
 /*
  * FPV Channel Scanner
- * Revision: 97
+ * Revision: 100
  * Board : Waveshare ESP32-C5-LCD-2.73 (ESP32-C5, ILI9488 320x320 SPI LCD)
  * Core  : Arduino-ESP32 3.3.x  (Tools > Board > "ESP32C5 Dev Module")
  *
@@ -75,12 +75,13 @@
  *   scanning dots, IMD refresh, moved-channel fade). All settings are kept
  *   in flash. See Settings.cpp for the list.
  *
- *   HDZero mode (the "HDZero features" setting) adds the Quietest for
- *   HDZero page, draws only HDZero-usable channels on both grid pages
- *   (the rest are left blank), shows a blue "HDZ" marker at the top left
- *   of the grids, and limits the IMD-Free page
- *   to HDZero channels. In HDZero mode, Quietest for HDZero replaces
- *   Quietest Channels (the normal list isn't shown).
+ *   A video system (the "Video system" setting: HDZero, DJI, Walksnail or
+ *   OpenIPC; "HDZero mode" below means any of them) adds its Quietest page
+ *   ("Quietest for DJI", ...), draws only its channels on both grid pages
+ *   (the rest are left blank), shows a blue marker (HDZ, DJI, WS, IPC) at
+ *   the top left of the grids, and limits the IMD-Free page to its
+ *   channels. Its Quietest page replaces Quietest Channels. Channels off
+ *   the analog grid use the nearest measured channel within 6 MHz.
  *
  *   KEY_R: Activity -> Band Scan -> Spectrum -> Noise -> Quietest -> IMD-Free
  *          -> Activity (HDZero mode: ... Noise -> Quietest for HDZero -> IMD-Free ...)
@@ -94,12 +95,18 @@
  *   ENTER (short) on GRID     = cycle the span (dB); saved across power cycles
  *   ENTER (short) on NOISE    = clear the noise history
  *   ENTER (short) on IMD-FREE = hold / release the channel sets (no
- *                             re-picking while held; "Hold" flashes)
- *   ENTER (short) on either QUIETEST page does nothing
+ *                             re-picking while held; "Hold" flashes; the hold
+ *                             is kept when the page is left and shown again)
+ *   ENTER (short) on either QUIETEST page = clear the noise history (as NOISE)
  *   ENTER (short) on SPECTRUM = select the next band button above the graph
  *                             (HDZero mode: bands HDZero can't use are skipped)
- *   ENTER (short) on BAND SCAN = hold / release the scan ("Hold" flashes)
- *   ENTER (hold 0.7 s)        = re-learn the noise floor (do it with VTXs off)
+ *   ENTER (short) on BAND SCAN = hold / release the scan ("Hold" flashes; kept
+ *                             when the page is left and shown again)
+ *   ENTER (long press 0.7 s)  = re-learn the noise floor (do it with VTXs off)
+ *   ENTER (long press) on IMD-FREE while held = switch between Quietest first
+ *                             and Best IMD first (re-picks at once, stays held)
+ *   Every page shows its button hints on the bottom line (Left / ENTER /
+ *   Right) with the long press action in grey just above them.
  *
  * Arduino IDE note: only setup() and loop() live in this .ino, so the IDE's
  * auto-generated prototypes have nothing to trip over. Types are in Config.h,
@@ -244,6 +251,23 @@
  *       (rotated one-line labels centred on their bars, stepped upward from
  *       the lowest bar, dotted leaders); Auto range also scales the Activity
  *       grid; footers say "Span auto" when it is On
+ *   98  "Video system" setting (All bands/chans, HDZero, DJI, Walksnail, OpenIPC)
+ *       replaces HDZero on/off; HDZero-mode behaviour now follows any
+ *       system's channels; Video System page shows only that system's
+ *       settings; config pages reordered (Video System first, display last)
+ *   99  Shared noise floor by frequency: learned on one page, used by all;
+ *       a page re-learns only on ENTER hold (or with too little to start from)
+ *       ENTER on the Quietest pages clears the noise history, as on Noise
+ *       Band Scan: Spectrum-sized graph with the same waterfall under it
+ *  100  Button hints on the bottom line of every page, in Left / ENTER / Right
+ *       order (Left / Right name the page they go to), with a grey "Long press
+ *       ENTER: ..." legend above them; grids, graphs and Quietest rows made a
+ *       little shorter to fit; Save page build line moved above the legend
+ *       Band Scan and IMD-Free keep their Hold when the page is left
+ *       Band Scan: flashing "Hold" replaces the Peak line
+ *       IMD-Free, held: long press ENTER = Quietest first / Best IMD first;
+ *       in Best IMD first, a channel noisier than the Quietest-first pick
+ *       is shaded toward red (full red at Busy level above it)
  */
 
 #include "Scanner.h"
@@ -282,7 +306,6 @@ void setup() {
   Serial.println();
   radioInit();                                // radio starts while the splash shows
   gridResetFloor();
-  for (int b = 0; b < NUM_BANDS; b++) specFloorValid[b] = false;
   specSetBand(specBand);
 
   uint32_t t0 = micros();
@@ -337,11 +360,12 @@ void loop() {
   }
   if (evEnterLong) {                        // hold: re-learn the noise floor
     evEnterLong = false;
-    if (mode == MODE_GRID) { gridResetFloor(); gridInvalidate(); gridFooterDirty = true; drawTitleStatus(0, true); }
+    if (mode == MODE_IMD && imdHold) imdToggleBestFirst();   // held IMD sets: switch the ranking instead
+    else if (mode == MODE_GRID) { gridResetFloor(); gridInvalidate(); gridFooterDirty = true; drawTitleStatus(0, true); }
     else if (mode == MODE_ACTIVITY) { gridResetFloor(); actInvalidate(); actFooterDirty = true; drawTitleStatus(0, true); }
     else if (quietPage()) { gridResetFloor(); quietInvalidate(); quietFooterDirty = true; drawTitleStatus(0, true); }
     else if (mode == MODE_BANDSCAN) bscanRelearn();
-    else { specFloorValid[specBand] = false; specNoSeedOnce = true; specSetBand(specBand); specDrawStatic(); }
+    else { specNoSeedOnce = true; specSetBand(specBand); specDrawStatic(); }
   }
   if (evEnterShort) {
     evEnterShort = false;
@@ -351,8 +375,9 @@ void loop() {
       gridInvalidate(); gridFooterDirty = true;
     } else if (mode == MODE_ACTIVITY) {     // restart the activity sums
       actClear(); actInvalidate(); actFooterDirty = true;
-    } else if (quietPage()) {               // IMD-Free: hold / release; Quietest pages: nothing
+    } else if (quietPage()) {               // IMD-Free: hold / release; Quietest pages: as Noise
       if (mode == MODE_IMD) imdToggleHold();
+      else { actClear(); quietInvalidate(); quietFooterDirty = true; }   // clear the noise history
     } else if (mode == MODE_BANDSCAN) {     // hold / release the scan
       bscanTogglePause();
     } else {                                // next band button

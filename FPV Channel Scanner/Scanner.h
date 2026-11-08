@@ -1,6 +1,6 @@
 /*
  * FPV Channel Scanner - Scanner.h
- * Revision: 97
+ * Revision: 100
  *
  * Shared declarations: every global variable (defined in State.cpp) and
  * every function, grouped by the file that defines it. Each .cpp file
@@ -22,15 +22,24 @@ void saveSpan();
 ScreenMode loadLastPage();        // last page shown (sets specBand too)
 void saveLastPage();              // current page and spectrum band
 void formatSetting(int i, char *buf, int len);
+bool settingVisible(int i);       // shown in the menu (Video System page: per system)
 void stepSetting(int i, int dir);
 bool hdzeroOk(int b, int c);
+// Video system channels ("Video system" setting): name ("R1", "CH3", "149"),
+// the system's own frequency, and the measured grid channel standing in for it.
+struct SysChan { char name[6]; uint16_t mhz; int8_t b, c; };
+bool sysOn();                     // a video system other than analog is selected
+bool sysOk(int b, int c);         // grid channel b,c stands in for a system channel
+const SysChan *sysAt(int b, int c);   // that system channel, or nullptr
+const char *sysName();            // "HDZero", "DJI", "Walksnail", "OpenIPC"
+const char *sysTag();             // "HDZ", "DJI", "WS", "IPC" (grid corner marker)
+void sysChannelsText(char *buf, int len);   // footer line: what the system uses
 bool gridShown(int b, int c);
 bool bandEnabled(int b);          // spectrum band button usable (HDZero mode: band has an HDZero channel)     // false = box left blank (HDZero mode, channel HDZero can't use)
 
 // ---------------------------------------------------------------- Splash.cpp
 void showSplash();
 bool splashWait(uint32_t startMs);
-void hdzeroChannelsText(char *buf, int len);
 
 // ---------------------------------------------------------------- Config Menu.cpp
 void runConfigMenu();
@@ -91,7 +100,7 @@ extern float specSmooth[SPEC_MAX_PTS];
 extern uint16_t specMhz[SPEC_MAX_PTS];    // frequency of each sweep point (channels snapped exactly)
 extern int16_t specChPt[NUM_CH];         // sweep point index that sits on each channel
 extern float specFloor[NUM_BANDS][SPEC_MAX_PTS];
-extern bool specFloorValid[NUM_BANDS];
+extern float g_floorMhz[FLOOR_N];    // shared floor by frequency, 0 = none
 extern uint32_t specSweeps, specLearnUntil;
 extern bool specNoSeedOnce;   // ENTER-hold re-learn: start from scratch
 extern int16_t colShownH[GW];      // bar height currently drawn per column
@@ -129,6 +138,8 @@ void lcdText(int x, int y, const char *s, int scale, RGB fg, RGB bg);
 void lcdDrawRgbRow(int x, int y, int w, const uint8_t *rgb);
 void lcdTextSized(int x, int y, const char *s, int cw, int ch, RGB fg, RGB bg);
 void lcdTextV(int x, int y, const char *s, RGB fg, RGB bg);   // rotated 90 degrees, reads upward
+const uint8_t *wfColor(uint8_t level);   // waterfall colour (Page Spectrum.cpp)
+uint8_t wfLevelOf(float above);          // waterfall level for dB above the floor
 RGB scaleColor(RGB c, float k);
 
 // ---------------------------------------------------------------- Input.cpp
@@ -160,6 +171,9 @@ void drawSpanLabel();
 void drawLearnProgress(int footY, int pct);
 void drawTitleStatus(float sweepsPerSec, bool learning);
 ScreenMode pageAfter(ScreenMode m, int dir);
+void drawHintLine(const char *l, const char *e, const char *r);
+void drawPageHints();
+void drawLongPressLegend(const char *what);
 void showPopup(const char *msg);
 void enterMode(ScreenMode m);
 
@@ -170,8 +184,9 @@ void gridDrawStatic();
 void gridDrawCell(int b, int c, int level, bool peak);
 void gridDrawFooter(int pb, int pc, float aboveDb);
 void gridSweep();
-float gridFloorAt(float mhz);
-bool gridFloorReady();
+void  floorStore(uint16_t mhz, float v);   // a page's learned floor at mhz
+float floorKnownAt(float mhz);              // stored / interpolated floor, 0 = none
+void  gridSeed();                           // grid floor from the shared floor (learn if too little)
 
 // ---------------------------------------------------------------- Page Noise.cpp
 void actClear();
@@ -191,6 +206,8 @@ void quietInvalidate();
 void quietDrawStatic();
 void quietDrawEntry(int slot, int idx);
 void quietDraw(bool learning, uint32_t learnStart);
+extern bool imdHold;              // IMD-Free page: sets held (kept when the page is left)
+void imdToggleBestFirst();        // IMD-Free page, held: ENTER held = Quietest first / Best IMD first
 void imdToggleHold();             // IMD-Free page: ENTER freezes / releases the sets
 void imdRepaint();                // IMD-Free page: redraw the table after the pop-up
 
@@ -205,7 +222,6 @@ void specDrawFooter(float peakMhz, float aboveDb, bool learning);
 void specSweep();
 
 // ---------------------------------------------------------------- Page Band Scan.cpp
-void bscanForgetFloor();
 void bscanDrawStatic();
 void bscanEnter();
 void bscanRelearn();

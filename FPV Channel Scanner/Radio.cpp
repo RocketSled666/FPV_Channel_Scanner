@@ -1,6 +1,6 @@
 /*
  * FPV Channel Scanner - Radio.cpp
- * Revision: 97
+ * Revision: 100
  *
  * 5 GHz measurement: tuning (libphy phy_set_chanfreq(), or the Wi-Fi
  * path phy_change_channel(), "Tuning" setting) plus the analog RX filter

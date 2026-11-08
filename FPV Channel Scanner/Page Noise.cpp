@@ -1,6 +1,6 @@
 /*
  * FPV Channel Scanner - Page Noise.cpp
- * Revision: 97
+ * Revision: 100
  *
  * FPV Channel Noise page: long-term statistics for every channel
  * (average dB above floor, % busy, peak), shaded quietest to busiest.
@@ -97,7 +97,7 @@ void actDrawCell(int b, int c, int level, bool peak, int rank) {
 void actDrawFooter(int pb, int pc, float excessDb) {
   char s[40];
   learnShownPct = -1; scanAnimY = -1;
-  lcdFill(0, FOOT_Y, LCD_W, LCD_H - FOOT_Y, 0, 0, 0);
+  lcdFill(0, FOOT_Y, LCD_W, LEGEND_Y - FOOT_Y, 0, 0, 0);
   if (pb >= 0) {
     snprintf(s, sizeof(s), "%c%d %u %.1f dB %d%%", BAND_NAME[pb], pc + 1, FPV_MHZ[pb][pc], excessDb,
              actBusyPct(pb, pc));

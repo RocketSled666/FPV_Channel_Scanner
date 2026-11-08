@@ -1,6 +1,6 @@
 /*
  * FPV Channel Scanner - State.cpp
- * Revision: 97
+ * Revision: 100
  *
  * Definitions of all global state shared between the pages.
  */
@@ -58,7 +58,7 @@ float    specSmooth[SPEC_MAX_PTS];
 uint16_t specMhz[SPEC_MAX_PTS];    // frequency of each sweep point (channels snapped exactly)
 int16_t  specChPt[NUM_CH];         // sweep point index that sits on each channel
 float    specFloor[NUM_BANDS][SPEC_MAX_PTS];
-bool     specFloorValid[NUM_BANDS];
+float    g_floorMhz[FLOOR_N];        // shared noise floor by frequency (Page Activity.cpp)
 uint32_t specSweeps = 0, specLearnUntil = 0;
 bool     specNoSeedOnce = false;   // ENTER-hold re-learn: start from scratch
 int16_t  colShownH[GW];      // bar height currently drawn per column

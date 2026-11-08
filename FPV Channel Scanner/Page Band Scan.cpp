@@ -1,16 +1,18 @@
 /*
  * FPV Channel Scanner - Page Band Scan.cpp
- * Revision: 97
+ * Revision: 100
  *
  * Band Scan page, modelled on the ArduVidRx band scanner: one sweep over
  * the whole 5.3-6.0 GHz band, measuring every FPV channel frequency plus
  * fill-in points between them (and 37 MHz past each end), drawn as a bar
- * graph in 10 MHz bins. The graph ends at "Max MHz" (6000 MHz when Off),
+ * graph in 10 MHz bins, in the same graph box as the Spectrum page, with
+ * the same waterfall under it. The graph ends at "Max MHz" (6000 MHz when Off),
  * its bars widened to fill the width. Peaks are labelled with their
  * frequency, the strongest bar is yellow (others green, brighter when
  * stronger), and the footer names it ("Peak:
  * F1 5740 MHz 22 dB"). ENTER holds / releases the scan (a red "Hold" flashes
- * while held, as on the IMD-Free page).
+ * in place of the Peak line, as on the IMD-Free page). The hold is kept when
+ * another page is shown: coming back redraws the held scan without measuring.
  */
 
 #include "Scanner.h"
@@ -21,10 +23,10 @@ static int      bsPts = 0;
 static float    bsSmooth[BS_MAX_PTS];
 static float    bsFloor[BS_MAX_PTS];     // 0 = not learned
 static float    bsAbove[BS_MAX_PTS];     // smoothed dB above floor, last sweep
-static bool     bsFloorValid = false;
 static bool     bsNoSeedOnce = false;    // ENTER-hold re-learn: start from scratch
 static uint32_t bsSweeps = 0, bsLearnUntil = 0;
-static bool     bsPaused = false;
+bool     bsPaused = false;          // ENTER: Hold (read by drawPageHints); kept when the page is left
+static bool bsHeldRedraw = false;  // held and just shown again: draw the held scan once
 
 // ---------------------------------------------------------------- bins (bars)
 static int16_t bsBinPt0[BS_BINS];        // first point in the bin, -1 = none
@@ -99,14 +101,22 @@ static void bsBuildPoints() {
 }
 
 // Start learning again on the next visit (the grid floor was reset).
-void bscanForgetFloor() { bsFloorValid = false; }
 
 // Floor from the learned grid floor, or learn it from scratch.
 static void bsSeedFloor() {
-  bool seed = gridFloorReady() && !bsNoSeedOnce;
-  for (int i = 0; i < bsPts; i++) bsFloor[i] = seed ? gridFloorAt(bsMhz[i]) : 0;
-  if (seed) { bsLearnUntil = bsSweeps; bsFloorValid = true; }
-  else        bsLearnUntil = bsSweeps + SPEC_LEARN_SWEEPS;
+  // Floor from the shared floor (learned here or on another page). Learns
+  // only for an ENTER-hold re-learn or when too many points have nothing
+  // to start from.
+  int need = 0, unknown = 0;
+  for (int i = 0; i < bsPts; i++) {
+    bsFloor[i] = 0;
+    if (mhzBlocked(bsMhz[i])) continue;
+    need++;
+    bsFloor[i] = bsNoSeedOnce ? 0 : floorKnownAt(bsMhz[i]);
+    if (bsFloor[i] == 0) unknown++;
+  }
+  if (bsNoSeedOnce || unknown * FLOOR_LEARN_DIV > need) bsLearnUntil = bsSweeps + SPEC_LEARN_SWEEPS;
+  else bsLearnUntil = bsSweeps;
   bsNoSeedOnce = false;
 }
 
@@ -122,6 +132,30 @@ static void bsDrawAxis() {
 // Same vertical scale as the spectrum: the Span setting (bars above it clip
 // at the top), or with "Auto range" On at least the span, growing at once to
 // fit the highest bar and shrinking one step after SPEC_RANGE_HOLD_MS.
+// ---------------------------------------------------------------- waterfall
+// Same look as the Spectrum page's (shared colour ramp and "Waterfall log"
+// curve, scaled by the span): one row per sweep, newest on top, each bar's
+// value across its whole width; grey above "Max MHz".
+static uint8_t bsWf[WF_H][GW];
+static int     bsWfHead = 0, bsWfRows = 0;
+
+static void wfResetBs() {
+  bsWfHead = 0; bsWfRows = 0;
+  lcdFill(BS_GX, WF_Y, BS_GW, WF_H, 0, 0, 0);
+}
+
+static void wfDrawBs() {
+  static uint8_t row[GW * 3];
+  for (int r = 0; r < bsWfRows; r++) {
+    const uint8_t *lv = bsWf[(bsWfHead - r + WF_H) % WF_H];
+    for (int x = 0; x < BS_GW; x++) {
+      const uint8_t *c = wfColor(lv[x]);
+      row[x * 3] = c[0]; row[x * 3 + 1] = c[1]; row[x * 3 + 2] = c[2];
+    }
+    lcdDrawRgbRow(BS_GX, WF_Y + r, BS_GW, row);
+  }
+}
+
 static bool bsUpdateRange(float maxAbove) {
   int need = cfg.span;
   if (cfg.specAutoRange && maxAbove > need) need = min(SPEC_RANGE_MAX, ((int)ceilf(maxAbove / SPEC_RANGE_STEP)) * SPEC_RANGE_STEP);
@@ -137,25 +171,24 @@ static bool bsUpdateRange(float maxAbove) {
   return true;
 }
 
-// While held (ENTER), a red "Hold" flashes about once a second above the
-// hint, as on the IMD-Free page. force = redraw even if unchanged.
+// While held (ENTER), a red "Hold" flashes about once a second in place of
+// the "Peak: ..." line, as on the IMD-Free page. force = redraw even if
+// unchanged.
 static int bsHoldShown = -1;
 static void bsDrawHold(bool force) {
-  int on = bsPaused && (millis() / 500) % 2 == 0;
+  if (!bsPaused) { bsHoldShown = -1; return; }
+  int on = (millis() / 500) % 2 == 0;
   if (!force && on == bsHoldShown) return;
-  lcdFill(0, BS_HOLD_Y, LCD_W, BS_HINT_Y - BS_HOLD_Y, 0, 0, 0);
-  if (on) lcdText((LCD_W - 4 * 12) / 2, BS_HOLD_Y, "Hold", 2, C_RED, C_BG);
+  lcdFill(0, BS_FOOT_Y, LCD_W, 18, 0, 0, 0);
+  if (on) lcdText((LCD_W - 4 * 12) / 2, BS_FOOT_Y + 2, "Hold", 2, C_RED, C_BG);
   bsHoldShown = on;
 }
 
-// Centred "ENTER: Hold" / "ENTER: Release" hint (as on the IMD-Free page),
-// plus the flashing "Hold".
+// Button hints on the bottom line ("ENTER: Hold" / "ENTER: Release"), then
+// the flashing "Hold" (not while learning, when the progress bar is there).
 static void bsDrawHint() {
-  lcdFill(0, BS_HINT_Y, 220, 8, 0, 0, 0);
-  const char *act = bsPaused ? "Release" : "Hold";
-  int x = (LCD_W - 6 * (7 + (int)strlen(act))) / 2;
-  lcdText(x, BS_HINT_Y, "ENTER:", 1, C_TEXT, C_BG);
-  lcdText(x + 42, BS_HINT_Y, act, 1, C_GOOD, C_BG);
+  drawPageHints();
+  if (bsSweeps < bsLearnUntil) return;
   bsDrawHold(true);
 }
 
@@ -169,11 +202,18 @@ void bscanDrawStatic() {
   lcdFillC(BS_GX - 1, BS_GY + BS_GH, BS_GW + 2, 1, C_DIM);
   lcdFillC(BS_GX - 1, BS_GY - 1, 1, BS_GH + 2, C_DIM);
   lcdFillC(BS_GX + BS_GW, BS_GY - 1, 1, BS_GH + 2, C_DIM);
-  // MHz labels with ticks every 100 MHz
+  // waterfall in a white box under the graph, as on the Spectrum page
+  lcdFillC(BS_GX - 1, WF_Y - 1,       BS_GW + 2, 1, C_PEAKH);
+  lcdFillC(BS_GX - 1, WF_Y + WF_H,    BS_GW + 2, 1, C_PEAKH);
+  lcdFillC(BS_GX - 1, WF_Y - 1,       1, WF_H + 2, C_PEAKH);
+  lcdFillC(BS_GX + BS_GW, WF_Y - 1,   1, WF_H + 2, C_PEAKH);
+  if (bsPaused) lcdFill(BS_GX, WF_Y, BS_GW, WF_H, 0, 0, 0);   // held: keep the history (redrawn next)
+  else wfResetBs();
+  // MHz labels with ticks every 100 MHz, under the waterfall
   for (int f = BS_LO_MHZ + 100; f < BS_LO_MHZ + bsBins * BS_BIN_MHZ; f += 100) {
     int x = BS_GX + (f - BS_LO_MHZ) * BS_GW / (bsBins * BS_BIN_MHZ);
     char s[12]; snprintf(s, sizeof(s), "%d", f);
-    lcdFillC(x, BS_GY + BS_GH + 1, 1, 3, C_DIM);
+    lcdFillC(x, WF_Y + WF_H + 1, 1, 2, C_DIM);
     lcdText(min(x - 12, LCD_W - 24), BS_AXIS_Y, s, 1, C_DIM, C_BG);
   }
   for (int k = 0; k < BS_BINS; k++) { bsShownH[k] = -1; bsShownKind[k] = -1; }
@@ -186,20 +226,26 @@ void bscanDrawStatic() {
 
 void bscanEnter() {
   if (bsPts == 0) bsBuildPoints();
+  if (bsPaused) {                                    // held when last here: show the held scan again
+    bsHeldRedraw = true;
+    bscanDrawStatic();
+    return;
+  }
   for (int i = 0; i < bsPts; i++) { bsSmooth[i] = NAN; bsAbove[i] = 0; }
-  if (!bsFloorValid) bsSeedFloor();
-  bsPaused = false;
+  bsSeedFloor();                                     // every time: picks up other pages' floors
   bscanDrawStatic();
 }
 
 // ENTER held: re-learn the floor from scratch.
 void bscanRelearn() {
-  bsFloorValid = false; bsNoSeedOnce = true;
+  bsNoSeedOnce = true;
+  bsPaused = false;                                  // a re-learn releases the hold
   bscanEnter();
 }
 
 void bscanTogglePause() {
   bsPaused = !bsPaused;
+  if (!bsPaused) bsFooterDirty = true;               // released: "Peak: ..." back next sweep
   bsDrawHint();
   Serial.printf("band scan: %s\n", bsPaused ? "hold" : "released");
 }
@@ -232,7 +278,7 @@ static void bsChanNames(uint16_t mhz, char *buf, int len) {
 
 static void bsDrawFooter(int peakPt, float aboveDb) {
   learnShownPct = -1; scanAnimY = -1;
-  lcdFill(0, BS_FOOT_Y, LCD_W, BS_HINT_Y - BS_FOOT_Y, 0, 0, 0);
+  lcdFill(0, BS_FOOT_Y, LCD_W, 18, 0, 0, 0);
   if (peakPt < 0) { drawScanning(BS_FOOT_Y + 2); return; }
   char names[16], s[40];
   bsChanNames(bsMhz[peakPt], names, sizeof(names));
@@ -270,11 +316,15 @@ static bool bsLabelCovers(const BsLabel &L, int k) {
 void bscanSweep() {
   static int lastPeakPt = -2, lastAbove = -999;
   static bool lastLearning = false;
-  if (bsPaused) { bsDrawHold(false); return; }       // held: just flash "Hold"
+  if (bsPaused && !bsHeldRedraw) { bsDrawHold(false); return; }   // held: just flash "Hold"
+  const bool redrawOnly = bsPaused;                 // held, page shown again: draw, don't measure
+  bsHeldRedraw = false;
   const uint32_t learnStart = bsLearnUntil - SPEC_LEARN_SWEEPS;
   const bool learningSweep = bsSweeps < bsLearnUntil;
   float raw[BS_MAX_PTS];
   bool  fb[BS_MAX_PTS];
+  bool learning = bsSweeps <= bsLearnUntil;
+  if (!redrawOnly) {
   for (int i = 0; i < bsPts; i++) {
     if (mhzBlocked(bsMhz[i])) { raw[i] = NAN; fb[i] = true; }   // above "Max MHz": not measured
     else {
@@ -289,7 +339,7 @@ void bscanSweep() {
     }
   }
   bsSweeps++;
-  const bool learning = bsSweeps <= bsLearnUntil;
+  learning = bsSweeps <= bsLearnUntil;
   for (int i = 0; i < bsPts; i++) {
     float v = raw[i];
     if (isnan(v)) continue;
@@ -308,9 +358,11 @@ void bscanSweep() {
       float med = tmp[n / 2];
       for (int i = 0; i < bsPts; i++) if (bsFloor[i] > med + 4.0f) bsFloor[i] = med + 4.0f;
     } }
-  if (!learning) bsFloorValid = true;
+  if (!learning)                                     // learned: share it with the other pages
+    for (int i = 0; i < bsPts; i++) floorStore(bsMhz[i], bsFloor[i]);
   for (int i = 0; i < bsPts; i++)
     bsAbove[i] = (isnan(bsSmooth[i]) || bsFloor[i] == 0) ? 0 : max(0.0f, bsSmooth[i] - bsFloor[i]);
+  }   // !redrawOnly
 
   uint32_t tDraw0 = micros();
   // bin values: strongest point in each bin
@@ -454,6 +506,17 @@ void bscanSweep() {
   for (int n = 0; n < nPeak; n++) bsLbl[n] = lbl[n];
   bsNLbl = nPeak;
 
+  // waterfall: this sweep's row, each pixel column from its bar
+  if (!redrawOnly) {
+  bsWfHead = (bsWfHead + 1) % WF_H;
+  if (bsWfRows < WF_H) bsWfRows++;
+  for (int k = 0; k < bsBins; k++) {
+    uint8_t lv = binBlocked[k] ? WF_BLOCKED : wfLevelOf(binPt[k] >= 0 ? bsAbove[binPt[k]] : 0);
+    for (int x = binX(k) - BS_GX; x < binX(k + 1) - BS_GX; x++) bsWf[bsWfHead][x] = lv;
+  }
+  }   // !redrawOnly
+  wfDrawBs();
+
   // footer: the strongest bar's point, or Scanning / Learning
   int peakPt = hot >= 0 ? binPt[hot] : -1;
   float peakDb = peakPt >= 0 ? bsAbove[peakPt] : 0;
@@ -463,7 +526,7 @@ void bscanSweep() {
     bsDrawHint();
     lastLearning = true; bsFooterDirty = false;
   } else if (lastLearning || bsFooterDirty || peakPt != lastPeakPt || aboveR != lastAbove) {
-    if (lastLearning) lcdFill(0, BS_FOOT_Y, LCD_W, LCD_H - BS_FOOT_Y, 0, 0, 0);   // learning bar and span label
+    if (lastLearning) lcdFill(0, BS_FOOT_Y, LCD_W, LEGEND_Y - BS_FOOT_Y, 0, 0, 0);   // learning bar and span label
     bsDrawFooter(peakPt, peakDb);
     bsDrawHint();
     lastLearning = false; bsFooterDirty = false; lastPeakPt = peakPt; lastAbove = aboveR;

@@ -1,6 +1,6 @@
 /*
  * FPV Channel Scanner - Page Spectrum.cpp
- * Revision: 97
+ * Revision: 100
  *
  * Spectrum page: continuous sweep across one band in SPEC_STEP_MHZ
  * steps, with channel markers, values and band buttons. The sweep point
@@ -18,8 +18,6 @@
 static uint8_t wfLevel[WF_H][GW];   // 0..WF_LEVELS-1 per column, ring buffer of sweeps
 static int     wfHead = 0;          // row index of the newest sweep
 static int     wfRows = 0;          // sweeps stored so far (0..WF_H)
-#define WF_LEVELS 64
-#define WF_BLOCKED 255                  // column above "Max MHz": drawn grey
 static uint8_t wfLut[WF_LEVELS][3];
 
 // Colour ramp: dark blue -> purple -> orange -> bright yellow.
@@ -46,6 +44,22 @@ static void wfReset() {
   if (!lutReady) { wfBuildLut(); lutReady = true; }
   wfHead = 0; wfRows = 0;
   lcdFill(GX, WF_Y, GW, WF_H, 0, 0, 0);
+}
+
+// Colour of a waterfall level (also used by the Band Scan waterfall).
+const uint8_t *wfColor(uint8_t level) {
+  static bool lutReady = false;
+  if (!lutReady) { wfBuildLut(); lutReady = true; }
+  static const uint8_t grey[3] = { C_BLOCKED.r, C_BLOCKED.g, C_BLOCKED.b };
+  return level == WF_BLOCKED ? grey : wfLut[min((int)level, WF_LEVELS - 1)];
+}
+
+// Waterfall level for a reading this far above the floor: 0..1 of the span
+// through the "Waterfall log" curve (0 = linear; higher lifts weak signals).
+uint8_t wfLevelOf(float above) {
+  float wx = constrain(above / cfg.span, 0.0f, 1.0f);
+  if (cfg.wfLogK > 0) wx = logf(1.0f + cfg.wfLogK * wx) / logf(1.0f + cfg.wfLogK);
+  return (uint8_t)constrain((int)lroundf(wx * (WF_LEVELS - 1)), 0, WF_LEVELS - 1);
 }
 
 // Redraw the waterfall: newest sweep on the top row, older ones below it;
@@ -124,21 +138,22 @@ void specSetBand(int band) {
     specChPt[c] = i;
   }
   for (int i = 0; i < specPts; i++) specSmooth[i] = NAN;
-  if (!specFloorValid[band]) {
-    bool seed = gridFloorReady() && !specNoSeedOnce;
-    for (int i = 0; i < SPEC_MAX_PTS; i++)
-      specFloor[band][i] = (seed && i < specPts) ? gridFloorAt(specMhz[i]) : 0;
-    if (seed) {
-      // Grid has learned: use its floor as-is. Normal min-tracking keeps
-      // refining it during use, so no separate learning pass is needed.
-      specLearnUntil = specSweeps;
-      specFloorValid[band] = true;
-    } else {
-      // Grid not learned yet, or an explicit ENTER-hold re-learn on this page.
-      specLearnUntil = specSweeps + SPEC_LEARN_SWEEPS;
+  // Floor from the shared floor (learned here or on another page). Learns
+  // only for an ENTER-hold re-learn or when too many points have nothing to
+  // start from (a band no page has measured yet).
+  { int need = 0, unknown = 0;
+    for (int i = 0; i < SPEC_MAX_PTS; i++) {
+      float v = 0;
+      if (i < specPts && !mhzBlocked(specMhz[i])) {
+        need++;
+        v = specNoSeedOnce ? 0 : floorKnownAt(specMhz[i]);
+        if (v == 0) unknown++;
+      }
+      specFloor[band][i] = v;
     }
-    specNoSeedOnce = false;
-  }
+    if (specNoSeedOnce || unknown * FLOOR_LEARN_DIV > need) specLearnUntil = specSweeps + SPEC_LEARN_SWEEPS;
+    else specLearnUntil = specSweeps;
+    specNoSeedOnce = false; }
   for (int x = 0; x < GW; x++) { colPeak[x] = 0; colIsMarker[x] = false; }
   for (int c = 0; c < NUM_CH; c++) {
     int x = freqToCol(FPV_MHZ[band][c]);
@@ -170,6 +185,7 @@ void specDrawButtons() {
 
 void specDrawStatic() {
   lcdFill(0, 0, LCD_W, LCD_H, 0, 0, 0);
+  drawPageHints();                                   // button hints, bottom line
   char t[32];
   snprintf(t, sizeof(t), "Spectrum: %s", BAND_LONG[specBand]);
   lcdText(4, 4, t, 1, C_ACC, C_BG);
@@ -257,14 +273,14 @@ void specDrawChannelValues(const float *flo) {
 void specDrawFooter(float peakMhz, float aboveDb, bool learning) {
   char s[40];
   learnShownPct = -1; scanAnimY = -1;
-  lcdFill(0, SPEC_FOOT_Y, LCD_W, LCD_H - SPEC_FOOT_Y, 0, 0, 0);
+  lcdFill(0, SPEC_FOOT_Y, LCD_W, LEGEND_Y - SPEC_FOOT_Y, 0, 0, 0);
   drawSpanLabel();
   if (learning) {
-    lcdText(4, SPEC_FOOT_Y + 6, "Learning", 2, C_ACC, C_BG);
+    lcdText(4, SPEC_FOOT_Y + 2, "Learning", 2, C_ACC, C_BG);
     return;
   }
   if (aboveDb < 3.0f) {
-    drawScanning(SPEC_FOOT_Y + 6);
+    drawScanning(SPEC_FOOT_Y + 2);
     return;
   }
   // nearest channel in this band
@@ -277,7 +293,7 @@ void specDrawFooter(float peakMhz, float aboveDb, bool learning) {
     snprintf(s, sizeof(s), "%u %d dB %c%d", (unsigned)lroundf(peakMhz), (int)lroundf(aboveDb), BAND_NAME[specBand], nc + 1);
   else
     snprintf(s, sizeof(s), "%u %d dB", (unsigned)lroundf(peakMhz), (int)lroundf(aboveDb));
-  lcdText(4, SPEC_FOOT_Y + 6, s, 2, C_ACC, C_BG);
+  lcdText(4, SPEC_FOOT_Y + 2, s, 2, C_ACC, C_BG);
 }
 
 // One spectrum sweep across the selected band + redraw of changed columns.
@@ -322,7 +338,8 @@ void specSweep() {
     float med = tmp[nf / 2];
     for (int i = 0; i < specPts; i++) if (flo[i] != 0 && flo[i] > med + 4.0f) flo[i] = med + 4.0f;
   }
-  if (!learning) specFloorValid[specBand] = true;
+  if (!learning)                                  // learned: share it with the other pages
+    for (int i = 0; i < specPts; i++) floorStore(specMhz[i], flo[i]);
 
   // draw: each pixel column interpolates, by frequency, between the two
   // sweep points either side of it (points aren't evenly spaced any more)
@@ -352,11 +369,7 @@ void specSweep() {
     float above = a0 + (a1 - a0) * t;     // trace is drawn even while learning
     if (above > bestAbove) { bestAbove = above; bestMhz = f; }
     int h = constrain((int)lroundf(above * GH / specRange), 0, GH);
-    // Waterfall colour: 0..1 of the span, through a log curve set by
-    // "Waterfall log" (0 = linear; higher lifts weak signals).
-    float wx = constrain(above / cfg.span, 0.0f, 1.0f);
-    if (cfg.wfLogK > 0) wx = logf(1.0f + cfg.wfLogK * wx) / logf(1.0f + cfg.wfLogK);
-    wfNew[x] = (uint8_t)constrain((int)lroundf(wx * (WF_LEVELS - 1)), 0, WF_LEVELS - 1);
+    wfNew[x] = wfLevelOf(above);            // waterfall colour (span, log curve)
     colPeak[x] = max(colPeak[x] - PEAK_DECAY_PX, (float)h); // peak hold, falling
     specDrawColumn(x, h, (int)colPeak[x]);
     if ((x & 31) == 0) pollInput();

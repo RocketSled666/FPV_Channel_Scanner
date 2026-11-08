@@ -1,6 +1,6 @@
 /*
  * FPV Channel Scanner - Page Activity.cpp
- * Revision: 97
+ * Revision: 100
  *
  * FPV Channel Activity page (the live grid) and the grid sweep that
  * also feeds the Channel Noise and Quietest Channels pages.
@@ -11,9 +11,6 @@
 void gridResetFloor() {
   for (int b = 0; b < NUM_BANDS; b++)
     for (int c = 0; c < NUM_CH; c++) { gridFloor[b][c] = 0; gridSmooth[b][c] = NAN; }
-  // Spectrum floors came from the old grid floor; re-seed them next time.
-  for (int b = 0; b < NUM_BANDS; b++) specFloorValid[b] = false;
-  bscanForgetFloor();                      // and the band scan floor
   actClear();                              // activity is relative to the floor
   gridLearnUntil = gridSweeps + GRID_LEARN_SWEEPS;
 }
@@ -45,7 +42,7 @@ void gridDrawCell(int b, int c, int level, bool peak) {
 void gridDrawFooter(int pb, int pc, float aboveDb) {
   char s[40];
   learnShownPct = -1; scanAnimY = -1;
-  lcdFill(0, FOOT_Y, LCD_W, LCD_H - FOOT_Y, 0, 0, 0);
+  lcdFill(0, FOOT_Y, LCD_W, LEGEND_Y - FOOT_Y, 0, 0, 0);
   if (pb >= 0) {
     snprintf(s, sizeof(s), "%c%d %u %d dB", BAND_NAME[pb], pc + 1, FPV_MHZ[pb][pc], (int)lroundf(aboveDb));
     lcdText(4, FOOT_Y + 2, s, 2, C_ACC, C_BG);
@@ -116,6 +113,9 @@ void gridSweep() {
     for (int b = 0; b < NUM_BANDS; b++) for (int c = 0; c < NUM_CH; c++)
       if (gridFloor[b][c] != 0 && gridFloor[b][c] > medFloor + 4.0f) gridFloor[b][c] = medFloor + 4.0f;
   }
+
+  if (!learning)                                  // learned: share it with the other pages
+    for (int b = 0; b < NUM_BANDS; b++) for (int c = 0; c < NUM_CH; c++) floorStore(FPV_MHZ[b][c], gridFloor[b][c]);
 
   if (!learning) actAccumulate(raw);
 
@@ -215,25 +215,41 @@ void gridSweep() {
   }
 }
 
-// Noise floor at any frequency, linearly interpolated from the grid's 48
-// learned channel floors (nearest value is held beyond the ends). Channels
-// with no floor (0) are skipped; 0 if no channel has one.
-float gridFloorAt(float mhz) {
-  float lowF = 1e9f, lowV = 0, highF = -1e9f, highV = 0;     // overall ends
-  float belowF = -1e9f, belowV = 0, aboveF = 1e9f, aboveV = 0; // neighbours
-  for (int b = 0; b < NUM_BANDS; b++)
-    for (int c = 0; c < NUM_CH; c++) {
-      float f = FPV_MHZ[b][c], v = gridFloor[b][c];
-      if (v == 0) continue;
-      if (f < lowF)  { lowF = f;  lowV = v; }
-      if (f > highF) { highF = f; highV = v; }
-      if (f <= mhz && f > belowF) { belowF = f; belowV = v; }
-      if (f >= mhz && f < aboveF) { aboveF = f; aboveV = v; }
-    }
-  if (mhz <= lowF)  return lowV;
-  if (mhz >= highF) return highV;
-  if (aboveF == belowF) return belowV;
-  return belowV + (aboveV - belowV) * (mhz - belowF) / (aboveF - belowF);
+// ---------------------------------------------------------------- shared floor
+void floorStore(uint16_t mhz, float v) {
+  int i = (int)mhz - FLOOR_LO_MHZ;
+  if (v != 0 && i >= 0 && i < FLOOR_N) g_floorMhz[i] = v;
 }
 
-bool gridFloorReady() { return gridSweeps > gridLearnUntil; }
+// Stored floor at mhz; else interpolated between the nearest stored values
+// within FLOOR_REACH_MHZ below and above; else the nearest one if it is
+// within half that; else 0 (nothing to go on).
+float floorKnownAt(float mhz) {
+  int m = (int)lroundf(mhz) - FLOOR_LO_MHZ;
+  if (m < 0 || m >= FLOOR_N) return 0;
+  if (g_floorMhz[m] != 0) return g_floorMhz[m];
+  int lo = -1, hi = -1;
+  for (int k = m - 1; k >= 0 && m - k <= FLOOR_REACH_MHZ; k--) if (g_floorMhz[k] != 0) { lo = k; break; }
+  for (int k = m + 1; k < FLOOR_N && k - m <= FLOOR_REACH_MHZ; k++) if (g_floorMhz[k] != 0) { hi = k; break; }
+  if (lo >= 0 && hi >= 0) return g_floorMhz[lo] + (g_floorMhz[hi] - g_floorMhz[lo]) * (m - lo) / (float)(hi - lo);
+  if (lo >= 0 && m - lo <= FLOOR_REACH_MHZ / 2) return g_floorMhz[lo];
+  if (hi >= 0 && hi - m <= FLOOR_REACH_MHZ / 2) return g_floorMhz[hi];
+  return 0;
+}
+
+// Grid pages shown again (or for the first time): take the shared floor,
+// which may have been learned or refined on another page. Learns only when
+// too many channels have nothing to start from.
+void gridSeed() {
+  int need = 0, unknown = 0;
+  for (int b = 0; b < NUM_BANDS; b++)
+    for (int c = 0; c < NUM_CH; c++) {
+      if (mhzBlocked(FPV_MHZ[b][c])) continue;     // above "Max MHz": never measured
+      need++;
+      float v = floorKnownAt(FPV_MHZ[b][c]);
+      if (v != 0) gridFloor[b][c] = v;
+      else if (gridFloor[b][c] == 0) unknown++;
+    }
+  if (unknown * FLOOR_LEARN_DIV > need) gridLearnUntil = gridSweeps + GRID_LEARN_SWEEPS;
+  else gridLearnUntil = gridSweeps;
+}

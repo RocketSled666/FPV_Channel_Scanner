@@ -2,6 +2,76 @@
 
 Revision numbers match the `Revision:` line in the source headers.
 
+## Revision 100
+- Button hints on the bottom line of every page (scanner pages and
+  Configuration), in key order: "Left:" at the left edge, "ENTER:" centred,
+  "Right:" at the right edge. On the scanner pages Left / Right name the page
+  they go to and ENTER says what a short press does (Span, Hold / Release,
+  Next band, Clear). Shared drawHintLine / drawPageHints.
+- Grey "Long press ENTER: ..." legend just above the hints on every page
+  (Re-learn floor; on IMD-Free while held, Best IMD first / Quietest first;
+  Save / Discard in Configuration). "Hold ENTER" is now "Long press ENTER"
+  on screen and in the docs.
+- Button actions (hints, long press legend, Help page) in light blue
+  (C_KEYACT), key names in white; they were green.
+- To make room: grid boxes 35 px tall (were 38), Spectrum and Band Scan
+  graph 168 px (was 186) with their footer at the grid footer's height,
+  Quietest rows 30 px apart (were 31), learning bar 2 px thinner. In
+  Configuration the help line, "Changes apply after Save and restart" and
+  (Save / Discard page) the build line sit above the legend and hints.
+- Band Scan: the flashing "Hold" replaces the Peak line (was above the graph).
+- Band Scan and IMD-Free keep their Hold when another page is shown; coming
+  back shows the held scan / sets again. A Band Scan re-learn releases it.
+- IMD-Free: long press ENTER while held switches between Quietest first (as
+  before) and Best IMD first (IMD score always wins; noise only breaks ties)
+  and re-picks at once, still held. In Best IMD first a channel noisier than
+  the noisiest channel of the Quietest-first set for that column is shaded
+  from yellow toward red (full red at Busy level above it). Footer says
+  which is in use. Help page has a line for it.
+
+## Revision 99
+- Shared noise floor: every page stores its learned floor by frequency
+  (1 MHz steps) and seeds from it each time it is shown (grid pages when
+  coming from another page, the Spectrum on every band change, Band Scan
+  on entry), interpolating between stored values up to 40 MHz apart. The
+  first page to learn does it for the others; a page learns on its own only
+  when ENTER is held or when more than 1/8 of its frequencies have nothing
+  to start from. Replaces the one-way grid -> Spectrum / Band Scan seeding
+  (gridFloorAt, gridFloorReady, specFloorValid, bscanForgetFloor removed).
+  A grid re-learn no longer throws away the Spectrum and Band Scan floors.
+- ENTER (short) on the Quietest pages clears the noise history, as on the
+  Noise page (it did nothing). Help page updated.
+- Band Scan graph uses the Spectrum page's graph box (same position and
+  size) and gets the same waterfall under it: 31 sweeps, newest on top,
+  each bar's value across its width, the Spectrum's colours and "Waterfall
+  log" curve, grey above "Max MHz". MHz scale under the waterfall; the
+  flashing "Hold" and the ENTER hint moved above the graph. Waterfall
+  colour code shared (wfColor, wfLevelOf).
+
+## Revision 98
+- "HDZero features" became "Video system" (page renamed Video System):
+  All bands/chans (all 48 channels), HDZero, DJI, Walksnail or OpenIPC.
+  The old setting carries over (Off = All bands/chans, On = HDZero). A
+  value too long for its menu row is drawn with narrower characters. Every page that followed HDZero
+  mode now follows the selected system: its Quietest page ("Quietest for
+  DJI", ...) with the system's own channel names and frequencies, grids
+  showing only its channels, the corner marker (HDZ, DJI, WS, IPC), the
+  IMD-Free sets (scored on the system's frequencies) and the Spectrum band
+  buttons.
+- Channel sets (20 MHz): DJI V1/Vista and Walksnail standard (4 stock / 8
+  FCC), DJI O3 and O4 (3 stock / 7 FCC), DJI O4 race and Walksnail race
+  (R1-R8), OpenIPC = 5 GHz Wi-Fi channels. A system channel off the analog
+  grid uses the nearest measured channel within 6 MHz.
+- New settings: DJI model (V1/Vista, O3, O4, O4 race; default O4), FCC
+  channels (DJI / Walksnail, default Off), WS race mode (default Off).
+  "Low band L1-L8" and "E1 and F1" are now "HDZ low band" and "HDZ E1 and
+  F1". The Video System page shows only the selected system's settings
+  (none for All bands/chans and OpenIPC; FCC channels not with a race mode).
+- Configuration pages reordered: Help, Video System, Radio, Scanning,
+  Channel Selection, then the display pages (Display, Controls), then Save
+  / Discard. Display settings follow the page order (Activity, Band Scan,
+  Spectrum, Noise, Quietest / IMD).
+
 ## Revision 97
 - Band Scan now comes right after the Activity grid: KEY_R order Activity >
   Band Scan > Spectrum > Noise > Quietest > IMD-Free (KEY_L the reverse).

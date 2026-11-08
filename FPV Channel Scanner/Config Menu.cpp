@@ -1,6 +1,6 @@
 /*
  * FPV Channel Scanner - Config Menu.cpp
- * Revision: 97
+ * Revision: 100
  *
  * Configuration menu, opened by holding KEY_L + KEY_R for CONFIG_HOLD_MS on
  * any page.
@@ -28,10 +28,10 @@
 #define MENU_ROW_Y0     62      // first list row
 #define MENU_ROW_PITCH  30
 #define MENU_ROW_PITCH_TIGHT 24 // pages with more than 6 settings (User Interface)
-#define MENU_HELP_Y     262     // one-line description of the selected item
-#define MENU_HINT_Y     284     // button hints
-#define MENU_SAVE_UP    16      // Save / Discard page: footer raised to leave two
-                                // blank lines above the build line at the bottom
+#define MENU_HELP_Y     266     // one-line description of the selected item
+#define MENU_NOTE_Y     282     // "Changes apply after Save and restart"
+#define MENU_SAVE_UP    16      // Save / Discard page: footer raised to make room
+                                // for the build line above the long press legend
 static const RGB C_SEL = { 55, 40, 0 };   // selected row background
 
 // Actions on the last page, after the settings
@@ -90,12 +90,23 @@ static void drawCentered(int y, const char *s, int scale, RGB fg) {
 }
 
 // ---------------------------------------------------------------- menu drawing
-// Menu items: 0 = the Help page, then every setting, then the actions.
-static int  menuTotal()          { return 1 + NUM_SETTINGS + NUM_ACTIONS; }
-static bool isHelp(int item)     { return item == 0; }
-static bool isAction(int item)   { return item >= 1 + NUM_SETTINGS; }
-static int  setIdx(int item)     { return item - 1; }                  // index into SETTINGS[]
-static int  actIdx(int item)     { return item - 1 - NUM_SETTINGS; }   // ACT_SAVE...
+// Menu items: 0 = the Help page, then every visible setting, then the
+// actions. menuVis[] maps an item to its raw index (0 = Help, 1.. = SETTINGS
+// + 1, then the actions); rebuilt whenever a value changes, since settings
+// on the Video System page come and go with the system selected.
+static int  menuVis[1 + 128], menuN = 0;
+static void menuRebuild() {
+  menuN = 0;
+  menuVis[menuN++] = 0;
+  for (int i = 0; i < NUM_SETTINGS; i++) if (settingVisible(i)) menuVis[menuN++] = 1 + i;
+  for (int a = 0; a < NUM_ACTIONS; a++) menuVis[menuN++] = 1 + NUM_SETTINGS + a;
+}
+static int  menuTotal()          { return menuN; }
+static bool isHelp(int item)     { return menuVis[item] == 0; }
+static bool isAction(int item)   { return menuVis[item] >= 1 + NUM_SETTINGS; }
+static int  setIdx(int item)     { return menuVis[item] - 1; }                  // index into SETTINGS[]
+static int  actIdx(int item)     { return menuVis[item] - 1 - NUM_SETTINGS; }   // ACT_SAVE...
+static int  actionItem(int a)    { return menuN - NUM_ACTIONS + a; }
 static const char *itemPage(int item) {
   return isHelp(item) ? HELP_PAGE : isAction(item) ? FINISH_PAGE : SETTINGS[setIdx(item)].page;
 }
@@ -150,19 +161,23 @@ static void drawMenuRow(int item, int row, bool selected, bool editing) {
   if (isAction(item)) return;
   char v[16];
   formatSetting(setIdx(item), v, sizeof(v));
-  int w = 12 * (int)strlen(v);
+  // A value too long for the space after the name ("All bands/chans") is
+  // drawn with narrower characters.
+  const int len = (int)strlen(v), room = LCD_W - 10 - (10 + 12 * (int)strlen(name) + 12);
+  const int cw = 12 * len <= room ? 12 : max(7, room / len);
+  int w = cw * len;
   int x = LCD_W - 10 - w;
   if (editing) {                                   // value being edited: blue box
     lcdFillC(x - 4, y - 3, w + 8, 20, C_HDZ);
-    lcdText(x, y, v, 2, RGB{ 0, 0, 0 }, C_HDZ);
+    lcdTextSized(x, y, v, cw, 16, RGB{ 0, 0, 0 }, C_HDZ);
   } else {
-    lcdText(x, y, v, 2, selected ? C_TEXT : C_DIM, bg);
+    lcdTextSized(x, y, v, cw, 16, selected ? C_TEXT : C_DIM, bg);
   }
 }
 
 // "Revision 66   Built 2026-11-02 17:22:01" from FW_REVISION and the
 // compiler's __DATE__ ("Nov  2 2026") / __TIME__ ("17:22:01") for this file.
-#define MENU_BUILD_Y  (LCD_H - 8)            // very bottom line of the screen
+#define MENU_BUILD_Y  (MENU_NOTE_Y - MENU_SAVE_UP + 18)   // just above the button hints
 static void drawBuildInfo() {
   static const char MONTHS[] = "JanFebMarAprMayJunJulAugSepOctNovDec";
   const char *d = __DATE__;
@@ -176,7 +191,7 @@ static void drawBuildInfo() {
 
 static void drawMenuFooter(int item, bool editing) {
   const int up = isAction(item) ? MENU_SAVE_UP : 0;
-  const int helpY = MENU_HELP_Y - up, hintY = MENU_HINT_Y - up;
+  const int helpY = MENU_HELP_Y - up, noteY = MENU_NOTE_Y - up;
   lcdFill(0, helpY - 2, LCD_W, LCD_H - helpY + 2, 0, 0, 0);
   const char *help = isHelp(item)   ? "Settings follow on the next pages"
                    : (!isAction(item) && measTimeoutLocked(setIdx(item))) ? "Fixed at 12 ms while 802.11p mode is on"
@@ -191,10 +206,10 @@ static void drawMenuFooter(int item, bool editing) {
     }
   }
   lcdText(4, helpY, help, 1, C_DIM, C_BG);
-  // Button hints, in three groups: "Left:" at the left edge, "ENTER:" against
-  // the right edge and "Right:" centred between them. Left / Right say "Back" /
-  // "Forward" when the selection is on the top / last line, since the next
-  // press changes page.
+  // Button hints on the bottom line (drawHintLine, as on every page), in key
+  // order: Left, ENTER, Right. Left / Right say "Back" / "Forward" when the
+  // selection is on the top / last line, since the next press changes page.
+  // The long press legend goes just above them.
   const char *l, *r, *e;
   if (editing)            { l = "-"; r = "+"; e = "Set"; }
   else if (isHelp(item))  { l = "Save Changes"; r = "Forward"; e = "Forward"; }
@@ -205,24 +220,15 @@ static void drawMenuFooter(int item, bool editing) {
     r = item == first + count - 1 ? "Forward" : "Down";
     e = isAction(item) ? "Select" : "Modify Value";
   }
-  char hl[24], hr[24], he[24];
-  snprintf(hl, sizeof(hl), "Left: %s", l);
-  snprintf(hr, sizeof(hr), "Right: %s", r);
-  snprintf(he, sizeof(he), "ENTER: %s", e);
-  int leftEnd = 4 + 6 * (int)strlen(hl);
-  int xe = LCD_W - 4 - 6 * (int)strlen(he);
-  int xr = (leftEnd + xe - 6 * (int)strlen(hr)) / 2;           // centred in the gap
-  // key name in white, its action in green
-  lcdText(4,  hintY, "Left:", 1, C_TEXT, C_BG);   lcdText(4 + 36,  hintY, l, 1, C_GOOD, C_BG);
-  lcdText(xr, hintY, "Right:", 1, C_TEXT, C_BG);  lcdText(xr + 42, hintY, r, 1, C_GOOD, C_BG);
-  lcdText(xe, hintY, "ENTER:", 1, C_TEXT, C_BG);  lcdText(xe + 42, hintY, e, 1, C_GOOD, C_BG);
-  lcdText(4, hintY + 14, "Changes apply after Save and restart", 1, C_DIM, C_BG);
-  if (isAction(item)) drawBuildInfo();             // Save / Discard page: bottom line
+  lcdText(4, noteY, "Changes apply after Save and restart", 1, C_DIM, C_BG);
+  drawLongPressLegend("Save / Discard");
+  drawHintLine(l, e, r);                           // bottom line, as on every page
+  if (isAction(item)) drawBuildInfo();             // Save / Discard page: above the legend
 }
 
 // Help page: what every button does, screen by screen (as in the .ino header).
 // Headings in yellow; each line has the button(s) on the left, in white, and
-// what they do on the right, in green.
+// what they do on the right, in blue.
 #define HELP_Y0     58
 #define HELP_PITCH  10
 #define HELP_COL2   118     // x of the description column (one space after 16 characters)
@@ -234,7 +240,7 @@ static void helpHeading(int &y, const char *s) {
 }
 static void helpLine(int &y, const char *keys, const char *what) {
   lcdText(10, y, keys, 1, C_TEXT, C_BG);
-  lcdText(HELP_COL2, y, what, 1, C_GOOD, C_BG);                // the action, in green
+  lcdText(HELP_COL2, y, what, 1, C_KEYACT, C_BG);              // the action, in blue (as the hints)
   y += HELP_PITCH;
 }
 
@@ -245,20 +251,22 @@ static void drawHelpPage() {
   helpLine(y, "Left / Right:",    "previous / next page");
   snprintf(s, sizeof(s), "%d s: open Configuration menu", (int)(CONFIG_HOLD_MS / 1000));
   helpLine(y, "Hold Left+Right:", s);
-  char k[32];
-  snprintf(k, sizeof(k), "Hold ENTER %d.%ds:", (int)(LONG_PRESS_MS / 1000), (int)(LONG_PRESS_MS / 100 % 10));
-  helpLine(y, k,                  "re-learn noise floor (VTXs off)");
+  snprintf(s, sizeof(s), "re-learn floor, VTXs off (%d.%d s)", (int)(LONG_PRESS_MS / 1000), (int)(LONG_PRESS_MS / 100 % 10));
+  helpLine(y, "Long press ENTER:", s);
+  helpLine(y, "  IMD-Free held:", "Best IMD / Quietest first");
   helpHeading(y, "ENTER (short press)");
   helpLine(y, "Activity:",        "cycle the span (dB), saved");
   helpLine(y, "Band Scan:",       "hold / release the scan");
   helpLine(y, "Spectrum:",        "select the next band");
-  helpLine(y, "Noise:",           "clear the noise history");
+  helpLine(y, "Noise, Quietest:", "clear the noise history");
   helpLine(y, "IMD-Free:",        "hold / release the sets");
   helpHeading(y, "Page order");
   lcdText(10, y, "Right: Activity > Band Scan > Spectrum", 1, C_TEXT, C_BG);
   y += HELP_PITCH;
-  lcdText(10, y, cfg.hdzero ? "       > Noise > Quietest for HDZero > IMD"
-                            : "       > Noise > Quietest > IMD-free", 1, C_TEXT, C_BG);
+  { char t[56];
+    if (sysOn()) snprintf(t, sizeof(t), "       > Noise > Quietest for %s > IMD", sysName());
+    else         snprintf(t, sizeof(t), "       > Noise > Quietest > IMD-free");
+    lcdText(10, y, t, 1, C_TEXT, C_BG); }
   y += HELP_PITCH;
   lcdText(10, y, "Left:  goes back the same way", 1, C_TEXT, C_BG);
   snprintf(s, sizeof(s), "Quietest after %d s", cfg.quietMinS);   // noise history needed
@@ -267,7 +275,7 @@ static void drawHelpPage() {
   helpHeading(y, "Configuration");
   helpLine(y, "Left / Right:",    "up / down; - / + when editing");
   helpLine(y, "ENTER:",           "edit, set, on/off or select");
-  helpLine(y, "Hold ENTER:",      "go to Save / Discard");
+  helpLine(y, "Long press ENTER:", "go to Save / Discard");
 }
 
 static void drawMenuPage(int item, bool editing, const Settings &saved) {
@@ -305,6 +313,7 @@ void runConfigMenu() {
   MenuKey kR = { PIN_KEY_R,     digitalRead(PIN_KEY_R) == LOW,     millis(), 0 };
   MenuKey kE = { PIN_BTN_ENTER, digitalRead(PIN_BTN_ENTER) == LOW, millis(), 0 };
   bool enterLongFired = kE.down;           // a press already held at entry doesn't count
+  menuRebuild();
   int item = 0;                            // opens on the Help page
   bool editing = false;
   drawMenuPage(item, editing, saved);
@@ -316,7 +325,7 @@ void runConfigMenu() {
     bool enter = enterEv == 1;               // short press (on release)
     if (enterEv == 2) {                      // long press: straight to the Save / Discard page
       editing = false;
-      item = 1 + NUM_SETTINGS + ACT_SAVE;
+      item = actionItem(ACT_SAVE);
       drawMenuPage(item, false, saved);
       continue;
     }
@@ -326,8 +335,10 @@ void runConfigMenu() {
     if (editing) {
       if (up || down) {
         stepSetting(setIdx(item), down ? +1 : -1);       // KEY_R = +, KEY_L = -
-        drawMenuRow(item, item - first, true, true);
-        drawMenuHeader(item, saved);
+        int before = menuTotal();
+        menuRebuild();                                   // a system change shows / hides rows below
+        if (menuTotal() != before) drawMenuPage(item, true, saved);
+        else { drawMenuRow(item, item - first, true, true); drawMenuHeader(item, saved); }
       }
       if (enter) {
         editing = false;
@@ -336,7 +347,7 @@ void runConfigMenu() {
       }
     } else if (up || down) {
       int next = (item + (down ? 1 : -1) + menuTotal()) % menuTotal();
-      if (isHelp(item) && up) next = 1 + NUM_SETTINGS + ACT_SAVE;   // Help: KEY_L -> "Save and restart"
+      if (isHelp(item) && up) next = actionItem(ACT_SAVE);          // Help: KEY_L -> "Save and restart"
       if (strcmp(itemPage(next), itemPage(item)) != 0) {
         item = next;
         drawMenuPage(item, false, saved);         // moved onto another page
@@ -356,6 +367,8 @@ void runConfigMenu() {
         if (a == ACT_DISCARD) { showMessageAndRestart("Changes discarded"); }
         if (a == ACT_DEFAULTS) {
           resetSettingsToDefaults();
+          menuRebuild();
+          item = actionItem(ACT_DEFAULTS);
           drawMenuPage(item, false, saved);
           lcdFill(0, MENU_HELP_Y - MENU_SAVE_UP - 2, LCD_W, 12, 0, 0, 0);
           lcdText(4, MENU_HELP_Y - MENU_SAVE_UP, "Defaults loaded - Save to keep them", 1, C_ACC, C_BG);
@@ -366,6 +379,7 @@ void runConfigMenu() {
         // RSSI only reads in whole dB, so it averages 3 samples per channel;
         // the noise-floor estimator (0.25 dB, 3.3 ms each) is fine with 1.
         if (v == &cfg.rssiOnly) cfg.gridSamples = *v ? 3 : 1;
+        menuRebuild();                         // WS race mode shows / hides FCC channels
         drawMenuPage(item, false, saved);      // whole page: a toggle can change another row (802.11p -> Meas timeout, RSSI only -> Samples)
       } else if (measTimeoutLocked(setIdx(item))) {
         // fixed while 802.11p mode is on: not editable

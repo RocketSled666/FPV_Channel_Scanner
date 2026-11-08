@@ -1,6 +1,6 @@
 /*
  * FPV Channel Scanner - Page Quietest.cpp
- * Revision: 97
+ * Revision: 100
  *
  * Quietest Channels and Quietest for HDZero pages: the QUIET_LIST_N
  * quietest channels from the Channel Noise history, in two columns of 8:
@@ -16,7 +16,10 @@
  * the score is 100 - total / 5 / channels (100 = clean). Channels in a set
  * are at least cfg.imdMinSep MHz apart. Among the best-scoring sets, the one
  * on the quietest channels (noise history) wins, so a busy channel is
- * avoided. In HDZero mode only channels an HDZero VTX can use are picked.
+ * avoided ("Quietest first"). Long press ENTER while the sets are held
+ * switches to "Best IMD first": the best IMD score always wins and noise only
+ * breaks ties; a chosen channel noisier than the Quietest-first pick for its
+ * column is shaded toward red. In HDZero mode only channels an HDZero VTX can use are picked.
  */
 
 #include "Scanner.h"
@@ -54,6 +57,9 @@ static int      imdShownScore[IMD_COLS];
 static uint32_t imdComputedMs = 0;
 static uint32_t imdMoveMs[IMD_COLS][IMD_MAX_N];   // moved-channel fade start per cell
 static bool     imdDirty = true;                  // recompute before the next draw
+static uint8_t  imdTint[IMD_COLS][IMD_MAX_N];     // Best IMD first: how much noisier than the quietest pick (0-255)
+static uint8_t  imdShownTint[IMD_COLS][IMD_MAX_N];
+bool imdBestFirst = false;                        // long press ENTER while held: Best IMD first / Quietest first
 
 // Candidate channels: one per frequency (F8 and R7 are both 5880 MHz, for
 // example). The name used for a shared frequency follows R, F, E, A, B, L.
@@ -64,9 +70,9 @@ static void imdBuildCandidates(bool useNoise) {
     int b = PREF[p];
     for (int c = 0; c < NUM_CH; c++) {
       if (chanNoData(b, c)) continue;                          // this board can't measure it
-      if (cfg.hdzero) { if (!hdzeroOk(b, c)) continue; }
+      if (sysOn()) { if (!sysOk(b, c)) continue; }      // video system: its channels only
       else if (BAND_NAME[b] == 'L' && !cfg.imdLowBand) continue;
-      uint16_t f = FPV_MHZ[b][c];
+      uint16_t f = sysOn() ? sysAt(b, c)->mhz : FPV_MHZ[b][c];   // the system's own frequency
       bool dup = false;
       for (int i = 0; i < imdNCand; i++) if (imdCandMhz[i] == f) { dup = true; break; }
       if (dup) continue;
@@ -107,6 +113,7 @@ static int imdRatingFrom(int penalty, int n) { return 100 - penalty / 5 / n; }
 // A branch is dropped as soon as it can't beat the best set found so far.
 struct ImdSearch {
   int n;
+  bool bestImd;                 // rank by IMD score first, noise only between equal scores
   int pick[IMD_MAX_N];
   uint16_t f[IMD_MAX_N];
   float bestValue;
@@ -121,7 +128,7 @@ static void imdSearch(ImdSearch &S, int k, int start, float noise, int minGap, i
     // Score, noise and smallest gap can only get worse as channels are
     // added, so this is the best any set on this branch can reach.
     int rating = imdRatingFrom(imdPenalty(S.f, k), S.n);
-    float value = rating - 2.0f * noise + minGap * 0.001f;
+    float value = (S.bestImd ? rating * 1000.0f : (float)rating) - 2.0f * noise + minGap * 0.001f;
     if (value <= S.bestValue) return;
     if (k == S.n) {
       {
@@ -147,12 +154,29 @@ static void imdCompute() {
   uint32_t t0 = millis(), nodes = 0;
   for (int col = 0; col < IMD_COLS; col++) {
     ImdSearch S;
-    S.n = IMD_MIN_N + col; S.bestValue = -1e9f; S.bestRating = -999; S.nodes = 0;
+    S.n = IMD_MIN_N + col; S.bestValue = -1e9f; S.bestRating = -999; S.nodes = 0; S.bestImd = imdBestFirst;
     if (S.n <= imdNCand) imdSearch(S, 0, 0, 0, 100000, 0);
     nodes += S.nodes;
     imdScore[col] = S.bestRating;
-    for (int i = 0; i < IMD_MAX_N; i++)
+    for (int i = 0; i < IMD_MAX_N; i++) {
       imdSet[col][i] = (S.bestRating > -999 && i < S.n) ? imdCandIdx[S.bestPick[i]] : -1;
+      imdTint[col][i] = 0;
+    }
+    // Best IMD first: the set Quietest first would pick for this column sets
+    // the reference; a chosen channel noisier than its noisiest channel is
+    // tinted toward red, full red at Busy level above it.
+    if (imdBestFirst && useNoise && S.bestRating > -999) {
+      ImdSearch Q;
+      Q.n = S.n; Q.bestValue = -1e9f; Q.bestRating = -999; Q.nodes = 0; Q.bestImd = false;
+      imdSearch(Q, 0, 0, 0, 100000, 0);
+      nodes += Q.nodes;
+      float ref = 0;
+      for (int i = 0; i < Q.n && Q.bestRating > -999; i++) ref = max(ref, imdCandNoise[Q.bestPick[i]]);
+      for (int i = 0; i < S.n; i++) {
+        float k = (imdCandNoise[S.bestPick[i]] - ref) / max(1.0f, (float)cfg.busyDb);
+        if (k > 0.02f) imdTint[col][i] = (uint8_t)lroundf(constrain(0.25f + 0.75f * k, 0.0f, 1.0f) * 255);
+      }
+    }
   }
   imdComputedMs = millis(); imdDirty = false;
   if (serialHasRoom(200))
@@ -163,15 +187,15 @@ static void imdCompute() {
 static void imdInvalidate() {
   for (int col = 0; col < IMD_COLS; col++) {
     imdShownScore[col] = -1000;
-    for (int i = 0; i < IMD_MAX_N; i++) { imdShownSet[col][i] = -2; imdMoveMs[col][i] = 0; }
+    for (int i = 0; i < IMD_MAX_N; i++) { imdShownSet[col][i] = -2; imdMoveMs[col][i] = 0; imdShownTint[col][i] = 0; }
   }
   imdDirty = true;
 }
 
 // ENTER on the IMD-Free page: "hold" freezes the sets (no re-picking) until
-// ENTER is pressed again or another page is shown. While held, "Hold"
-// flashes under the table.
-static bool imdHold = false;
+// ENTER is pressed again; the hold is kept when another page is shown. While
+// held, "Hold" flashes under the table.
+bool imdHold = false;                // read by drawPageHints
 static int  imdHoldShown = -1, imdHintShown = -1;   // what's on screen, -1 = redraw
 
 static void imdDrawColumn(int col);
@@ -188,6 +212,20 @@ void imdToggleHold() {
   imdDrawHold();
 }
 
+// ENTER held while held: switch between Quietest first and Best IMD first
+// and re-pick now from the history so far (still held).
+void imdToggleBestFirst() {
+  imdBestFirst = !imdBestFirst;
+  imdCompute();
+  for (int col = 0; col < IMD_COLS; col++)          // redraw in full: a change here isn't a "moved" channel
+    for (int i = 0; i < IMD_MAX_N; i++) { imdShownSet[col][i] = -2; imdMoveMs[col][i] = 0; }
+  imdHintShown = -1;
+  for (int col = 0; col < IMD_COLS; col++) imdDrawColumn(col);
+  imdDrawHold();
+  quietFooterDirty = true;
+  Serial.printf("imd: %s first\n", imdBestFirst ? "best IMD" : "quietest");
+}
+
 static void imdDrawHold() {
   int on = imdHold && (millis() / 500) % 2 == 0;     // flashes about once a second
   if (on != imdHoldShown) {
@@ -196,17 +234,13 @@ static void imdDrawHold() {
     imdHoldShown = on;
   }
   if ((int)imdHold != imdHintShown) {                // button hint
-    lcdFill(0, IMD_HINT_Y, LCD_W, 8, 0, 0, 0);
-    const char *act = imdHold ? "Release" : "Hold";
-    int x = (LCD_W - 6 * (7 + (int)strlen(act))) / 2;
-    lcdText(x, IMD_HINT_Y, "ENTER:", 1, C_TEXT, C_BG);
-    lcdText(x + 42, IMD_HINT_Y, act, 1, C_GOOD, C_BG);
+    drawPageHints();
+
     imdHintShown = imdHold;
   }
 }
 
 static void imdDrawStatic() {
-  imdHold = false;                                    // a fresh visit is never held
   imdHoldShown = imdHintShown = -1;
   lcdFill(0, 0, LCD_W, LCD_H, 0, 0, 0);
   lcdText(4, 4, "IMD-Free Channels", 2, C_GOOD, C_BG);     // green title
@@ -237,10 +271,19 @@ void imdRepaint() {
 
 // Redraw one column if its set or score changed, or a moved channel in it is
 // still fading. A row whose channel changed (not the first fill) starts red.
+// Yellow, shaded toward red by a Best IMD first tint (0-255).
+static RGB imdTintColor(uint8_t t) {
+  float k = t / 255.0f;
+  return RGB{ (uint8_t)lroundf(C_ACC.r + (C_RED.r - C_ACC.r) * k),
+              (uint8_t)lroundf(C_ACC.g + (C_RED.g - C_ACC.g) * k),
+              (uint8_t)lroundf(C_ACC.b + (C_RED.b - C_ACC.b) * k) };
+}
+
 static void imdDrawColumn(int col) {
   bool same = imdScore[col] == imdShownScore[col], fading = false;
   for (int i = 0; i < IMD_MAX_N; i++) {
     int now = imdSet[col][i], was = imdShownSet[col][i];
+    if (imdTint[col][i] != imdShownTint[col][i]) same = false;
     if (now != was) {
       same = false;
       if (now >= 0 && was >= 0) imdMoveMs[col][i] = nowNonZero();   // moved
@@ -256,13 +299,15 @@ static void imdDrawColumn(int col) {
   for (int i = 0; i < IMD_MAX_N; i++) {
     int idx = imdSet[col][i];
     int y = IMD_Y0 + i * IMD_PITCH;
-    if (idx != imdShownSet[col][i] || imdMoveMs[col][i] || fading)
+    if (idx != imdShownSet[col][i] || imdMoveMs[col][i] || fading || imdTint[col][i] != imdShownTint[col][i])
       lcdFill(x, y, IMD_COL_W - 1, 24, 0, 0, 0);
-    imdShownSet[col][i] = idx;
+    imdShownSet[col][i] = idx; imdShownTint[col][i] = imdTint[col][i];
     if (idx < 0) continue;
-    char t[4];
-    snprintf(t, sizeof(t), "%c%d", BAND_NAME[idx / NUM_CH], idx % NUM_CH + 1);
-    lcdText(x + (IMD_COL_W - 1 - 18 * (int)strlen(t)) / 2, y, t, 3, moveColor(imdMoveMs[col][i], C_ACC), C_BG);
+    char t[8];
+    const SysChan *sc = sysOn() ? sysAt(idx / NUM_CH, idx % NUM_CH) : nullptr;
+    if (sc) snprintf(t, sizeof(t), "%s", sc->name);       // system channel name ("CH3", "149")
+    else    snprintf(t, sizeof(t), "%c%d", BAND_NAME[idx / NUM_CH], idx % NUM_CH + 1);
+    lcdText(x + (IMD_COL_W - 1 - 18 * (int)strlen(t)) / 2, y, t, 3, moveColor(imdMoveMs[col][i], imdTintColor(imdTint[col][i])), C_BG);
   }
   if (imdScore[col] == imdShownScore[col]) return;
   lcdFill(x, IMD_SCORE_Y, IMD_COL_W - 1, 8, 0, 0, 0);
@@ -295,16 +340,12 @@ static void imdDraw(bool learning, uint32_t learnStart) {
   lastLearning = learning;
   if (!learning && quietFooterDirty) {
     learnShownPct = -1; scanAnimY = -1;
-    lcdFill(0, FOOT_Y, LCD_W, LCD_H - FOOT_Y, 0, 0, 0);
+    lcdFill(0, FOOT_Y, LCD_W, LEGEND_Y - FOOT_Y, 0, 0, 0);
     char t[64];
-    if (cfg.hdzero) {                                      // "HDZero only: R1-8, ..."
-      char h[48];
-      hdzeroChannelsText(h, sizeof(h));
-      snprintf(t, sizeof(t), "HDZero only:%s", h + 7);     // after "HDZero:"
-    }
+    if (sysOn()) sysChannelsText(t, sizeof(t));             // "HDZero only: R1-8, ..."
     else snprintf(t, sizeof(t), "Min spacing %d MHz%s", cfg.imdMinSep, cfg.imdLowBand ? ", L band on" : "");
     lcdText(4, FOOT_Y + 6, t, 1, C_DIM, C_BG);
-    lcdText(4, FOOT_Y + 20, noise ? "Quietest sets first" : "IMD only (no history)", 1, C_DIM, C_BG);
+    lcdText(4, FOOT_Y + 20, !noise ? "IMD only (no history)" : imdBestFirst ? "Best IMD first" : "Quietest sets first", 1, C_DIM, C_BG);
     drawSpanLabel();
     quietFooterDirty = false;
   }
@@ -322,7 +363,11 @@ void quietInvalidate() {
 void quietDrawStatic() {
   if (mode == MODE_IMD) { imdDrawStatic(); return; }
   lcdFill(0, 0, LCD_W, LCD_H, 0, 0, 0);
-  lcdText(4, 4, mode == MODE_HDZERO ? "Quietest for HDZero" : "Quietest Channels", 2, C_GOOD, C_BG);   // green title
+  drawPageHints();                                   // button hints, bottom line
+  { char t[32];
+    if (mode == MODE_HDZERO) snprintf(t, sizeof(t), "Quietest for %s", sysName());
+    else snprintf(t, sizeof(t), "Quietest Channels");
+    lcdText(4, 4, t, 2, C_GOOD, C_BG); }                   // green title
   lcdFillC(QUIET_COL_W, QUIET_Y0 - 2, 1, 8 * QUIET_PITCH, C_MARK);   // column divider
   quietInvalidate();
   quietFooterDirty = true;
@@ -339,10 +384,14 @@ void quietDrawEntry(int slot, int idx) {
   char t[24];
   snprintf(t, sizeof(t), "%2d", slot + 1);
   lcdText(x, y, t, 2, C_RANK, C_BG);                       // position in the list
-  snprintf(t, sizeof(t), "%c%d", BAND_NAME[b], c + 1);
+  // On the video system's page: the system's channel name and frequency
+  const SysChan *sc = mode == MODE_HDZERO ? sysAt(b, c) : nullptr;
+  if (sc) snprintf(t, sizeof(t), "%s", sc->name);
+  else    snprintf(t, sizeof(t), "%c%d", BAND_NAME[b], c + 1);
   lcdText(x + 30, y, t, 2, moveColor(quietMoveMs[slot], C_ACC), C_BG);   // band / channel (red when just moved)
-  snprintf(t, sizeof(t), "%u", FPV_MHZ[b][c]);
-  lcdText(x + 62, y, t, 2, C_TEXT, C_BG);                  // frequency
+  int fx = max(x + 62, x + 30 + 12 * (int)strlen(t) + 6);   // after a 3-letter name
+  snprintf(t, sizeof(t), "%u", sc ? sc->mhz : FPV_MHZ[b][c]);
+  lcdText(fx, y, t, 2, C_TEXT, C_BG);                      // frequency
   snprintf(t, sizeof(t), "%.1f dB, %d%% busy", actAvg(b, c), actBusyPct(b, c));
   lcdText(x + 30, y + 18, t, 1, C_DIM, C_BG);
 }
@@ -353,12 +402,12 @@ void quietDraw(bool learning, uint32_t learnStart) {
   bool ready = !learning && actLastMs != 0;
   int order[NUM_BANDS * NUM_CH];
   actRankOrder(order);
-  // On the HDZero page, keep only channels an HDZero VTX can use.
+  // On the video system's page, keep only the channels standing in for its channels.
   // Both lists hold at most cfg.lBandLimit L-band channels ("L Band Limit").
   int list[NUM_BANDS * NUM_CH], nList = 0, nL = 0;
   for (int i = 0; i < NUM_BANDS * NUM_CH; i++) {
     int k = order[i];
-    if (mode == MODE_HDZERO && !hdzeroOk(k / NUM_CH, k % NUM_CH)) continue;
+    if (mode == MODE_HDZERO && !sysOk(k / NUM_CH, k % NUM_CH)) continue;
     if (chanNoData(k / NUM_CH, k % NUM_CH)) continue;          // this board can't measure it
     if (BAND_NAME[k / NUM_CH] == 'L') { if (nL >= cfg.lBandLimit) continue; nL++; }
     list[nList++] = k;
@@ -391,9 +440,9 @@ void quietDraw(bool learning, uint32_t learnStart) {
   if (ready != lastReady) { quietFooterDirty = true; lastReady = ready; }
   if (!learning && quietFooterDirty) {
     learnShownPct = -1; scanAnimY = -1;
-    lcdFill(0, FOOT_Y, LCD_W, LCD_H - FOOT_Y, 0, 0, 0);
+    lcdFill(0, FOOT_Y, LCD_W, LEGEND_Y - FOOT_Y, 0, 0, 0);
     if (ready && mode == MODE_HDZERO)
-      { char t[48]; hdzeroChannelsText(t, sizeof(t)); lcdText(4, FOOT_Y + 6, t, 1, C_DIM, C_BG); }
+      { char t[64]; sysChannelsText(t, sizeof(t)); lcdText(4, FOOT_Y + 6, t, 1, C_DIM, C_BG); }
     if (ready) lcdText(4, FOOT_Y + 20, "1 = quietest", 1, C_DIM, C_BG);
     else       drawScanning(FOOT_Y + 2);
     drawSpanLabel();
