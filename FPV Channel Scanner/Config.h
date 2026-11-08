@@ -1,6 +1,6 @@
 /*
  * FPV Channel Scanner - Config.h
- * Revision: 94
+ * Revision: 96
  *
  * Hardware pins, tuning constants, shared types, frequency table, colors
  * and the undocumented ESP32-C5 radio access used by the scanner.
@@ -10,7 +10,7 @@
 
 // Firmware revision shown on the Save / Discard page. Keep it equal to the
 // "Revision:" line in the file headers.
-#define FW_REVISION 94
+#define FW_REVISION 96
 
 #include <Arduino.h>
 #include <Wire.h>
@@ -21,9 +21,10 @@
 struct RGB { uint8_t r, g, b; };
 // Pages. MODE_GRID is "FPV Channel Activity", MODE_ACTIVITY is "FPV Channel
 // Noise", MODE_QUIET is "Quietest Channels", MODE_IMD is "IMD-Free Channels",
-// MODE_HDZERO is "Quietest for HDZero". Order is set by pageAfter().
+// MODE_HDZERO is "Quietest for HDZero", MODE_BANDSCAN is "Band Scan". Order is
+// set by pageAfter().
 enum ScreenMode { MODE_GRID = 0, MODE_SPECTRUM = 1, MODE_ACTIVITY = 2, MODE_QUIET = 3,
-                  MODE_HDZERO = 4, MODE_IMD = 5 };
+                  MODE_HDZERO = 4, MODE_IMD = 5, MODE_BANDSCAN = 6 };
 struct StallStat {        // frequencies whose measurement timed out
   uint16_t mhz;
   uint32_t count;
@@ -67,6 +68,7 @@ struct Settings {
   int tuneMode;      // TUNE_DIRECT, TUNE_WIFI or TUNE_WIFI_CH (how the receiver is tuned)
   int rxFilterMhz;   // analog RX filter width, RXF_MIN..RXF_AUTO-1 MHz, or RXF_AUTO = as calibrated
   int specAutoRange; // Spectrum graph height grows to fit peaks (Off = fixed at the span)
+  int restorePage;   // start on the last page shown (Off = Activity grid)
 };
 
 // One line in the Configuration menu (Settings.cpp)
@@ -257,6 +259,23 @@ extern "C" void     phy_i2c_writeReg(unsigned block, unsigned host, unsigned reg
 #define BTN_W     43                 // 6 x 43 + 5 x 6 = 288 = graph box width (GW + 2)
 #define BTN_GAP   6
 #define SPEC_FOOT_Y 290
+// band scan
+#define BS_MAX_PTS     128               // sweep points (91 with the standard table)
+#define BS_EDGE_MHZ    37                // sweep starts / ends this far past the outer channels
+#define BS_LO_MHZ      5300              // graph left edge
+#define BS_BIN_MHZ     10                // one bar per 10 MHz
+#define BS_BINS        70                // most bars, 5300-6000 MHz (fewer below "Max MHz")
+#define BS_GX          34                // graph left
+#define BS_GW          280               // graph width (px); bar pitch BS_GW / bars, 1 px gap
+#define BS_GY          30                // graph top
+#define BS_GH          216               // graph height (px)
+#define BS_GRID_N      4                 // grid lines at quarters of the range
+#define BS_AXIS_Y      (BS_GY + BS_GH + 5)   // MHz labels under the graph
+#define BS_FOOT_Y      266               // "Peak: ..." line
+#define BS_HINT_Y      310               // "ENTER: pause" / "Paused"
+#define BS_PEAK_MIN_DB 5                 // smallest bar (dB above floor) that gets a label or turns green
+#define BS_LABEL_GAP   7                 // peak labels at least this many bars apart
+#define BS_C_BAR       RGB{ 170, 170, 185 }
 
 // ---------------------------------------------------------------- colors
 static const RGB C_BG    = {   0,   0,   0 };

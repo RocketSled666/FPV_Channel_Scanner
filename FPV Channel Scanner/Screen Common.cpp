@@ -1,6 +1,6 @@
 /*
  * FPV Channel Scanner - Screen Common.cpp
- * Revision: 94
+ * Revision: 96
  *
  * Drawing shared by several pages (grid frame, Scanning dots, span /
  * history label, learning progress, title status), the pop-up, and
@@ -113,7 +113,8 @@ ScreenMode pageAfter(ScreenMode m, int dir) {
   if (dir > 0) {
     switch (m) {
       case MODE_GRID:     return MODE_SPECTRUM;
-      case MODE_SPECTRUM: return MODE_ACTIVITY;
+      case MODE_SPECTRUM: return MODE_BANDSCAN;
+      case MODE_BANDSCAN: return MODE_ACTIVITY;
       case MODE_ACTIVITY: return cfg.hdzero ? MODE_HDZERO : MODE_QUIET;   // HDZero mode: HDZero list only
       case MODE_QUIET:    return MODE_IMD;
       case MODE_HDZERO:   return MODE_IMD;
@@ -123,7 +124,8 @@ ScreenMode pageAfter(ScreenMode m, int dir) {
   switch (m) {
     case MODE_GRID:     return MODE_ACTIVITY;     // skips both quietest lists
     case MODE_SPECTRUM: return MODE_GRID;
-    case MODE_ACTIVITY: return MODE_SPECTRUM;
+    case MODE_BANDSCAN: return MODE_SPECTRUM;
+    case MODE_ACTIVITY: return MODE_BANDSCAN;
     case MODE_IMD:      return cfg.hdzero ? MODE_HDZERO : MODE_QUIET;
     default:            return MODE_ACTIVITY;     // from either Quietest list
   }
@@ -149,8 +151,11 @@ void enterMode(ScreenMode m) {
     actDrawStatic();
   } else if (quietPage()) {
     quietDrawStatic();
+  } else if (mode == MODE_BANDSCAN) {
+    bscanEnter();
   } else {
     specSetBand(specBand);
     specDrawStatic();
   }
+  saveLastPage();
 }

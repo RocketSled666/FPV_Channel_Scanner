@@ -53,6 +53,7 @@ All in `FPV Channel Scanner/`:
 | `Screen Common.cpp` | Drawing shared by pages, pop-up, page navigation |
 | `Page Activity.cpp` | FPV Channel Activity page and the channel sweep |
 | `Page Spectrum.cpp` | Spectrum page |
+| `Page Band Scan.cpp` | Band Scan page |
 | `Page Noise.cpp` | FPV Channel Noise page and the long-term statistics |
 | `Page Quietest.cpp` | Quietest Channels, Quietest for HDZero and IMD-Free Channels pages |
 | `font5x7.h` | 5x7 bitmap font |
@@ -65,8 +66,8 @@ Each source file's header carries the revision number; see `CHANGELOG.md`
 for what changed in each revision.
 
 ## Screens
-Pages in KEY_R order: Activity -> Spectrum -> Noise -> Quietest (or Quietest for HDZero)
--> IMD-Free -> Activity. KEY_L goes back: Activity -> Noise -> Spectrum -> Activity, and
+Pages in KEY_R order: Activity -> Spectrum -> Band Scan -> Noise -> Quietest (or Quietest for HDZero)
+-> IMD-Free -> Activity. KEY_L goes back: Activity -> Noise -> Band Scan -> Spectrum -> Activity, and
 IMD-Free -> Quietest (or Quietest for HDZero) -> Noise. In HDZero mode (see below) the Quietest for
 HDZero page replaces Quietest Channels; otherwise only Quietest Channels is shown. Quietest Channels is only reached with KEY_R from Channel Noise, and
 only once there are 60 s of noise history; before that a "Wait NNs"
@@ -90,6 +91,16 @@ pop-up shows and the page stays put.
   the span, so its colours mean the same from row to row (strong signals
   just saturate to yellow). Band buttons
   L E R A B F are a row above the graph, as wide as it (selected band in green).
+- **Band Scan**: the whole band in one sweep, like the ArduVidRx band
+  scanner. It measures every channel frequency plus fill-in points between
+  them (one to three, depending on the gap) and 37 MHz past each end, 91
+  points from 5325 to 5982 MHz, and draws them as bars in 10 MHz bins on a
+  5300-6000 MHz axis. With "Max MHz" set, the axis ends there instead and
+  the bars widen to fill the graph. Peaks of 5 dB or more are labelled with their
+  frequency, the strongest bar is green, and the footer names it, e.g.
+  "Peak: F1 5740 MHz 22 dB". The graph height ranges itself like the
+  spectrum's. The floor comes from the grid's learned floor (or is learned
+  here if the grid hasn't learned yet).
 - **FPV Channel Noise**: same layout. Every channel keeps its own long-term
   statistics from start-up (or the last reset): average dB above the floor,
   % of time busy (6 dB or more above the floor by default, "Busy level") and peak. Nothing fades, so
@@ -126,7 +137,8 @@ limits the IMD-Free page to HDZero channels. The HDZero lists can leave out L1-L
 ## Configuration
 At power-on a splash screen shows for 5 seconds while the radio starts. Press
 KEY_L and KEY_R together during it to open the Configuration menu; otherwise
-the Activity grid follows. You can also open the menu at any time by holding
+the page shown last before power-off or restart follows (the Activity grid the
+first time, or always with "Restore page" Off), on the same spectrum band. You can also open the menu at any time by holding
 KEY_L and KEY_R together for 5 seconds on any page.
 
 The menu opens on a Help page that lists what each button does on each
@@ -141,7 +153,7 @@ bar ("Radio Page", "Display Page", ...), then a Save / Discard page. The "Config
 | Channel Selection | Busy level (dB); minimum history before Quietest opens (s); L Band Limit (1-8): most L-band channels in the Quietest lists and in each IMD-free set (8 = no limit); IMD min spacing (MHz), IMD use L band, IMD refresh (s) |
 | HDZero | HDZero features, low band L1-L8, E1 and F1 |
 | Display | Span (dB), Spectrum auto range, shading gamma, full-red spread (dB), peak decay, waterfall log curve (0 = linear), moved-channel fade (ms, 0 = off), backlight (%) |
-| Controls | Long press, Configuration hold, splash time, splash combo, pop-up time, scanning-dot step (ms) |
+| Controls | Long press, Configuration hold, splash time, splash combo (ms); Restore page (start on the last page shown, default On); pop-up time, scanning-dot step (ms) |
 
 - **KEY_L / KEY_R**: move up / down the list (past the end of a page goes to
   the next or previous page).
@@ -167,8 +179,11 @@ bar ("Radio Page", "Display Page", ...), then a Save / Discard page. The "Config
 - **ENTER (short)** on the spectrum: select the next band button. In HDZero
   mode, bands with no HDZero channel (A, B, and L or E when those are off in
   the HDZero settings) are drawn darker grey and skipped.
+- **ENTER (short)** on Band Scan: pause / resume the scan ("Paused" in red
+  while paused).
 - **ENTER (hold 0.7 s)**: re-learn the noise floor (grid: all channels;
-  spectrum: current band). Do it with your VTXs off if you can.
+  spectrum: current band; Band Scan: its own points). Do it with your VTXs
+  off if you can.
 - Serial monitor (115200) prints readings once per second.
 
 ## How it works

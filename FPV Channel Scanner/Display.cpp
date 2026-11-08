@@ -1,6 +1,6 @@
 /*
  * FPV Channel Scanner - Display.cpp
- * Revision: 94
+ * Revision: 96
  *
  * ILI9488 320x320 LCD driver (SPI, 18-bit color) on ESP-IDF's esp_lcd
  * panel IO, text drawing with the 5x7 font, and the CH32V003 IO expander

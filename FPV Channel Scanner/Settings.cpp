@@ -1,6 +1,6 @@
 /*
  * FPV Channel Scanner - Settings.cpp
- * Revision: 94
+ * Revision: 96
  *
  * User settings: the values, their limits and defaults, loading them from
  * flash at start-up and saving them, plus helpers that depend on them.
@@ -48,6 +48,7 @@ Settings cfg = {
   TUNE_WIFI,    // tuneMode
   16,           // rxFilterMhz
   0,            // specAutoRange
+  1,            // restorePage
 };
 
 const SettingDef SETTINGS[] = {
@@ -83,6 +84,7 @@ const SettingDef SETTINGS[] = {
   { "Controls", "Config hold",   "cfgHold",    &cfg.configHoldMs, 2000, 10000, 1000, 5000, 0, 0, " ms", "Left + Right held this long opens Configuration" },
   { "Controls", "Splash time",   "splashMs",   &cfg.splashMs,        0, 10000,  500, 5000, 0, 0, " ms", "How long the start-up splash shows (0 = none)" },
   { "Controls", "Splash combo",  "splashCmb",  &cfg.splashComboMs,  20,   500,   10,   80, 0, 0, " ms", "Left + Right held this long on splash = Config" },
+  { "Controls", "Restore page",  "restorePg",  &cfg.restorePage,     0,     1,    1,    1, 1, 0, "",    "Start on the last page shown (Off = Activity)" },
   { "Controls", "Pop-up time",   "popupMs",    &cfg.popupMs,       500,  5000,  250, 1500, 0, 0, " ms", "How long the Wait pop-up stays up" },
   { "Controls", "Scan dot step", "scanDot",    &cfg.scanDotMs,     100,  1000,   50,  400, 0, 0, " ms", "Speed of the Scanning dots" },
 };
@@ -133,6 +135,32 @@ void saveSpan() {
   Preferences prefs;
   prefs.begin(PREFS_NAMESPACE, false);
   if (prefs.getInt("span", -1) != cfg.span) prefs.putInt("span", cfg.span);
+  prefs.end();
+}
+
+// Last page shown and the spectrum band, saved apart from the settings and
+// restored at start-up when "Restore page" is On. A saved Quietest page
+// opens as the one that matches the current HDZero setting.
+ScreenMode loadLastPage() {
+  if (!cfg.restorePage) return MODE_GRID;
+  Preferences prefs;
+  prefs.begin(PREFS_NAMESPACE, true);
+  int m = prefs.getInt("page", MODE_GRID);
+  int b = prefs.getInt("specBand", specBand);
+  prefs.end();
+  if (b >= 0 && b < NUM_BANDS) specBand = b;
+  if (m < MODE_GRID || m > MODE_BANDSCAN) m = MODE_GRID;
+  if (m == MODE_QUIET && cfg.hdzero) m = MODE_HDZERO;
+  if (m == MODE_HDZERO && !cfg.hdzero) m = MODE_QUIET;
+  return (ScreenMode)m;
+}
+
+// Writes only what changed.
+void saveLastPage() {
+  Preferences prefs;
+  prefs.begin(PREFS_NAMESPACE, false);
+  if (prefs.getInt("page", -1) != (int)mode) prefs.putInt("page", (int)mode);
+  if (prefs.getInt("specBand", -1) != specBand) prefs.putInt("specBand", specBand);
   prefs.end();
 }
 

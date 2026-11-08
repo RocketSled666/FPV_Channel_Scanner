@@ -1,6 +1,6 @@
 /*
  * FPV Channel Scanner - Page Activity.cpp
- * Revision: 94
+ * Revision: 96
  *
  * FPV Channel Activity page (the live grid) and the grid sweep that
  * also feeds the Channel Noise and Quietest Channels pages.
@@ -13,6 +13,7 @@ void gridResetFloor() {
     for (int c = 0; c < NUM_CH; c++) { gridFloor[b][c] = 0; gridSmooth[b][c] = NAN; }
   // Spectrum floors came from the old grid floor; re-seed them next time.
   for (int b = 0; b < NUM_BANDS; b++) specFloorValid[b] = false;
+  bscanForgetFloor();                      // and the band scan floor
   actClear();                              // activity is relative to the floor
   gridLearnUntil = gridSweeps + GRID_LEARN_SWEEPS;
 }
