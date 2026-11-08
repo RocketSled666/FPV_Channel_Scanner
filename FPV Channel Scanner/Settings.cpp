@@ -1,6 +1,6 @@
 /*
  * FPV Channel Scanner - Settings.cpp
- * Revision: 100
+ * Revision: 101
  *
  * User settings: the values, their limits and defaults, loading them from
  * flash at start-up and saving them, plus helpers that depend on them.
@@ -306,12 +306,20 @@ static void sysBuild() {
 }
 
 // Rebuilds the table when a setting it depends on changed (cheap check).
+int sysSig() {
+  return cfg.vidSys | cfg.djiModel << 4 | cfg.fccChannels << 8 | cfg.wsRace << 9 |
+         cfg.hdzLowBand << 10 | cfg.hdzE1F1 << 11;
+}
+
 static void sysCheck() {
   static int sig = -1;
-  int s = cfg.vidSys | cfg.djiModel << 4 | cfg.fccChannels << 8 | cfg.wsRace << 9 |
-          cfg.hdzLowBand << 10 | cfg.hdzE1F1 << 11;
+  int s = sysSig();
   if (s != sig) { sig = s; sysBuild(); }
 }
+
+// The selected system's channels in table order (none for All bands/chans).
+int sysCount() { sysCheck(); return sysOn() ? sysN : 0; }
+const SysChan *sysChan(int i) { sysCheck(); return (i >= 0 && i < sysN) ? &sysCh[i] : nullptr; }
 
 bool sysOn() { return cfg.vidSys != VS_ANALOG; }
 

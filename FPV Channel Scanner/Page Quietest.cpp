@@ -1,6 +1,6 @@
 /*
  * FPV Channel Scanner - Page Quietest.cpp
- * Revision: 100
+ * Revision: 101
  *
  * Quietest Channels and Quietest for HDZero pages: the QUIET_LIST_N
  * quietest channels from the Channel Noise history, in two columns of 8:
@@ -197,6 +197,16 @@ static void imdInvalidate() {
 // held, "Hold" flashes under the table.
 bool imdHold = false;                // read by drawPageHints
 static int  imdHoldShown = -1, imdHintShown = -1;   // what's on screen, -1 = redraw
+bool imdHelpOpen = false;            // "no set" help box shown (ENTER: Help / Close)
+
+// True when no column has a set (e.g. DJI or Walksnail stock channels, all
+// closer together than "IMD min spacing"): ENTER then opens the help box
+// instead of holding.
+bool imdNoSets() {
+  if (imdComputedMs == 0) return false;
+  for (int col = 0; col < IMD_COLS; col++) if (imdScore[col] > -999) return false;
+  return true;
+}
 
 static void imdDrawColumn(int col);
 static void imdDrawHold();
@@ -233,17 +243,85 @@ static void imdDrawHold() {
     if (on) lcdText((LCD_W - 4 * 12) / 2, IMD_HOLD_Y, "Hold", 2, C_RED, C_BG);    // red
     imdHoldShown = on;
   }
-  if ((int)imdHold != imdHintShown) {                // button hint
+  const int hint = (int)imdHold | (int)imdNoSets() << 1 | (int)imdHelpOpen << 2;
+  if (hint != imdHintShown) {                         // button hints: Hold / Release / Help / Close
     drawPageHints();
 
-    imdHintShown = imdHold;
+    imdHintShown = hint;
+  }
+}
+
+// ---------------------------------------------------------------- "no set" help box
+#define IMD_HELP_X 6
+#define IMD_HELP_Y 28
+#define IMD_HELP_W (LCD_W - 12)
+#define IMD_HELP_H 134   // title, 4 lines and up to 3 fixes
+
+// What to change in Configuration to get sets, for the settings in use.
+static void imdDrawHelp() {
+  const RGB bg = { 30, 30, 30 };
+  lcdFillC(IMD_HELP_X, IMD_HELP_Y, IMD_HELP_W, IMD_HELP_H, C_ACC);          // border, as the pop-up
+  lcdFill(IMD_HELP_X + 3, IMD_HELP_Y + 3, IMD_HELP_W - 6, IMD_HELP_H - 6, bg.r, bg.g, bg.b);
+  int y = IMD_HELP_Y + 8;
+  char t[64];
+  auto ctr = [](const char *s, int size) { return (LCD_W - 6 * size * (int)strlen(s)) / 2; };   // centred x
+  lcdText(ctr("No IMD-free set", 2), y, "No IMD-free set", 2, C_ACC, bg); y += 22;
+  if (sysOn()) sysChannelsText(t, sizeof(t));
+  else snprintf(t, sizeof(t), "Channels: all bands%s", cfg.imdLowBand ? "" : " except L");
+  lcdText(ctr(t, 1), y, t, 1, C_TEXT, bg); y += 12;
+  snprintf(t, sizeof(t), "A set needs 3+ channels %d MHz apart.", cfg.imdMinSep);
+  lcdText(ctr(t, 1), y, t, 1, C_TEXT, bg); y += 18;
+  snprintf(t, sizeof(t), "Configuration (hold Left+Right %d s):", (int)(CONFIG_HOLD_MS / 1000));
+  lcdText(ctr(t, 1), y, t, 1, C_TEXT, bg); y += 14;
+  auto fix = [&](const char *page, const char *what) {          // "Video System: FCC channels On"
+    int x = (LCD_W - 6 * ((int)strlen(page) + 1 + (int)strlen(what))) / 2;
+    lcdText(x, y, page, 1, C_ACC, bg);
+    lcdText(x + 6 * ((int)strlen(page) + 1), y, what, 1, C_KEYACT, bg);
+    y += 12;
+  };
+  if (cfg.vidSys == VS_DJI) {
+    if (!cfg.fccChannels && cfg.djiModel != DJI_O4_RACE) fix("Video System:", "FCC channels On");
+    if (cfg.djiModel == DJI_O4) fix("Video System:", "DJI model O4 race");
+  } else if (cfg.vidSys == VS_WALKSNAIL) {
+    if (!cfg.fccChannels && !cfg.wsRace) fix("Video System:", "FCC channels On");
+    if (!cfg.wsRace) fix("Video System:", "WS race mode On");
+  } else if (cfg.vidSys == VS_HDZERO) {
+    if (!cfg.hdzLowBand) fix("Video System:", "HDZ low band On");
+    if (!cfg.hdzE1F1) fix("Video System:", "HDZ E1 and F1 On");
+  } else if (!sysOn() && !cfg.imdLowBand) {
+    fix("Channel Selection:", "IMD use L band On");
+  }
+  snprintf(t, sizeof(t), "IMD min spacing lower");
+  fix("Channel Selection:", t);
+  y += 6;
+  lcdText(ctr("then Save and restart.", 1), y, "then Save and restart.", 1, C_TEXT, bg);
+}
+
+static void imdDrawStatic();
+
+// ENTER (short) on the IMD-Free page: close the help box; with no sets, open
+// it; otherwise hold / release the sets.
+void imdEnterShort() {
+  if (imdHelpOpen) {
+    imdDrawStatic();                                  // closes it: table, footer and hints back
+    for (int col = 0; col < IMD_COLS; col++) imdDrawColumn(col);
+    imdDrawHold();
+  } else if (imdNoSets()) {
+    imdHelpOpen = true;
+    imdDrawHelp();
+    imdDrawHold();                                    // hint: "ENTER: Close"
+  } else {
+    imdToggleHold();
   }
 }
 
 static void imdDrawStatic() {
+  imdHelpOpen = false;
   imdHoldShown = imdHintShown = -1;
   lcdFill(0, 0, LCD_W, LCD_H, 0, 0, 0);
   lcdText(4, 4, "IMD-Free Channels", 2, C_GOOD, C_BG);     // green title
+  // video system tag right of the title (the grids' spot is taken by "3 pilots")
+  if (sysOn()) lcdText(4 + 17 * 12 + 8, 8, sysTag(), 1, C_HDZ, C_BG);
   for (int col = 0; col < IMD_COLS; col++) {
     char t[12];
     snprintf(t, sizeof(t), "%d pilots", IMD_MIN_N + col);
@@ -329,7 +407,9 @@ static void imdDraw(bool learning, uint32_t learnStart) {
     if (noise != lastNoise) quietFooterDirty = true;
     lastNoise = noise;
   }
-  for (int col = 0; col < IMD_COLS; col++) imdDrawColumn(col);
+  if (!imdHelpOpen) {                                 // the help box covers the table
+    for (int col = 0; col < IMD_COLS; col++) imdDrawColumn(col);
+  }
   imdDrawHold();
 
   if (learning) {

@@ -1,6 +1,6 @@
 /*
  * FPV Channel Scanner - Screen Common.cpp
- * Revision: 100
+ * Revision: 101
  *
  * Drawing shared by several pages (grid frame, Scanning dots, span /
  * history label, learning progress, title status), the pop-up, and
@@ -10,6 +10,13 @@
 #include "Scanner.h"
 
 // Title, channel numbers and band letters - shared by GRID and ACTIVITY.
+// Blue video system tag ("HDZ", "DJI", "WS", "IPC") at the top left, under
+// the title: left of the column numbers on the grids, the band buttons on the
+// Spectrum and the graph's top on Band Scan. Nothing for All bands/chans.
+void drawSysMarker() {
+  if (sysOn()) lcdText(4, HDR_Y + 4, sysTag(), 1, C_HDZ, C_BG);
+}
+
 void drawGridFrame(const char *title, RGB titleColor) {
   lcdFill(0, 0, LCD_W, LCD_H, 0, 0, 0);
   lcdText(4, 4, title, 2, titleColor, C_BG);
@@ -25,7 +32,7 @@ void drawGridFrame(const char *title, RGB titleColor) {
     char s[2] = { BAND_NAME[btnOrder[r]], 0 };
     lcdText(8, GRID_Y + r * (CELL_H + CELL_GAP) + (CELL_H - 24) / 2, s, 3, C_TEXT, C_BG);
   }
-  if (sysOn()) lcdText(4, HDR_Y + 4, sysTag(), 1, C_HDZ, C_BG);   // video system marker
+  drawSysMarker();
   learnShownPct = -1; scanAnimY = -1;
 }
 
@@ -212,7 +219,9 @@ void drawPageHints() {
     case MODE_GRID:     e = "Span"; break;
     case MODE_SPECTRUM: e = "Next band"; break;
     case MODE_BANDSCAN: e = bsPaused ? "Release" : "Hold"; break;
-    case MODE_IMD:      e = imdHold  ? "Release" : "Hold"; break;
+    case MODE_IMD: {                                  // no sets: ENTER explains why
+      extern bool imdHelpOpen; extern bool imdNoSets();
+      e = imdHelpOpen ? "Close" : imdNoSets() ? "Help" : imdHold ? "Release" : "Hold"; break; }
     default:            e = "Clear"; break;           // Noise and both Quietest lists
   }
   drawHintLine(pageShortName(pageAfter(mode, -1)), e, pageShortName(pageAfter(mode, +1)));

@@ -1,6 +1,6 @@
 /*
  * FPV Channel Scanner
- * Revision: 100
+ * Revision: 101
  * Board : Waveshare ESP32-C5-LCD-2.73 (ESP32-C5, ILI9488 320x320 SPI LCD)
  * Core  : Arduino-ESP32 3.3.x  (Tools > Board > "ESP32C5 Dev Module")
  *
@@ -94,6 +94,8 @@
  *   KEY_L + KEY_R held 5 s    = open the Configuration menu from any page
  *   ENTER (short) on GRID     = cycle the span (dB); saved across power cycles
  *   ENTER (short) on NOISE    = clear the noise history
+ *   ENTER (short) on IMD-FREE with no set in any column = Help: a box with
+ *                             the settings to change (ENTER again closes)
  *   ENTER (short) on IMD-FREE = hold / release the channel sets (no
  *                             re-picking while held; "Hold" flashes; the hold
  *                             is kept when the page is left and shown again)
@@ -268,6 +270,11 @@
  *       IMD-Free, held: long press ENTER = Quietest first / Best IMD first;
  *       in Best IMD first, a channel noisier than the Quietest-first pick
  *       is shaded toward red (full red at Busy level above it)
+ *  101  Band Scan follows the video system: its channels measured at their
+ *       own frequencies, named in labels and the Peak line, and only they
+ *       turn red. Video system tag (HDZ / DJI / WS / IPC) also on Band Scan,
+ *       Spectrum and IMD-Free. IMD-Free with no set in any column: ENTER =
+ *       Help, a box saying which settings to change (ENTER again closes)
  */
 
 #include "Scanner.h"
@@ -376,7 +383,7 @@ void loop() {
     } else if (mode == MODE_ACTIVITY) {     // restart the activity sums
       actClear(); actInvalidate(); actFooterDirty = true;
     } else if (quietPage()) {               // IMD-Free: hold / release; Quietest pages: as Noise
-      if (mode == MODE_IMD) imdToggleHold();
+      if (mode == MODE_IMD) imdEnterShort();     // Hold / Release, or Help with no sets
       else { actClear(); quietInvalidate(); quietFooterDirty = true; }   // clear the noise history
     } else if (mode == MODE_BANDSCAN) {     // hold / release the scan
       bscanTogglePause();

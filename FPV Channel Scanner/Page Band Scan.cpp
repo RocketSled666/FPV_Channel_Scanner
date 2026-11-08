@@ -1,6 +1,6 @@
 /*
  * FPV Channel Scanner - Page Band Scan.cpp
- * Revision: 100
+ * Revision: 101
  *
  * Band Scan page, modelled on the ArduVidRx band scanner: one sweep over
  * the whole 5.3-6.0 GHz band, measuring every FPV channel frequency plus
@@ -53,15 +53,26 @@ static void bsAddPt(uint16_t f) {
   if (bsPts < BS_MAX_PTS && (bsPts == 0 || f != bsMhz[bsPts - 1])) bsMhz[bsPts++] = f;
 }
 
-// Every channel frequency, sorted and de-duplicated, with fill-in points:
+// Every channel frequency (with a video system selected, its channels at
+// their own frequencies, e.g. DJI O4 5669 MHz, in place of FPV channels
+// within SYS_MATCH_MHZ of them), sorted and de-duplicated, with fill-in points:
 // 3 between channels more than 35 MHz apart, 2 when more than 22, 1 when
 // more than 9 (as in ArduVidRx's full-band scan). Starts 37 MHz below the
 // lowest channel and ends 37 MHz above the highest.
 static void bsBuildPoints() {
-  uint16_t ch[NUM_BANDS * NUM_CH];
+  uint16_t ch[NUM_BANDS * NUM_CH + SYS_MAX_CH];
   int n = 0;
   for (int b = 0; b < NUM_BANDS; b++)
-    for (int c = 0; c < NUM_CH; c++) ch[n++] = FPV_MHZ[b][c];
+    for (int c = 0; c < NUM_CH; c++) {
+      // a video system channel close to this one (DJI CH4 5770 next to R4
+      // 5769) is measured at its own frequency instead, so the bar there is
+      // that channel and gets its name
+      bool near = false;
+      for (int i = 0; i < sysCount(); i++)
+        if (abs((int)sysChan(i)->mhz - (int)FPV_MHZ[b][c]) <= SYS_MATCH_MHZ) near = true;
+      if (!near) ch[n++] = FPV_MHZ[b][c];
+    }
+  for (int i = 0; i < sysCount(); i++) ch[n++] = sysChan(i)->mhz;   // video system channels
   for (int i = 1; i < n; i++) { uint16_t k = ch[i]; int j = i - 1; while (j >= 0 && ch[j] > k) { ch[j + 1] = ch[j]; j--; } ch[j + 1] = k; }
   bsPts = 0;
   uint16_t prev = ch[0] - BS_EDGE_MHZ;
@@ -195,6 +206,7 @@ static void bsDrawHint() {
 void bscanDrawStatic() {
   lcdFill(0, 0, LCD_W, LCD_H, 0, 0, 0);
   lcdText(4, 4, "Band Scan", 2, C_ACC, C_BG);
+  drawSysMarker();                                   // video system, as on the grids
   if (bsRange < cfg.span) { bsRange = cfg.span; bsRangeNeedMs = millis(); }
   bsDrawAxis();
   // graph frame
@@ -225,7 +237,11 @@ void bscanDrawStatic() {
 }
 
 void bscanEnter() {
-  if (bsPts == 0) bsBuildPoints();
+  static int builtSig = -1;
+  if (bsPts == 0 || builtSig != sysSig()) {        // first visit, or the video system changed
+    bsBuildPoints(); builtSig = sysSig();
+    bsPaused = false;                                // old points: nothing to show held
+  }
   if (bsPaused) {                                    // held when last here: show the held scan again
     bsHeldRedraw = true;
     bscanDrawStatic();
@@ -266,6 +282,14 @@ static void bsDrawBin(int k, int h, RGB col) {
 // Channel names at a frequency ("F8/R8"), empty for a fill-in point.
 static void bsChanNames(uint16_t mhz, char *buf, int len) {
   buf[0] = 0;
+  if (sysOn()) {                                     // video system: its own channel names
+    for (int i = 0; i < sysCount(); i++) {
+      if (sysChan(i)->mhz != mhz) continue;
+      int n = strlen(buf);
+      snprintf(buf + n, len - n, "%s%s", n ? "/" : "", sysChan(i)->name);
+    }
+    return;
+  }
   for (int r = 0; r < NUM_BANDS; r++) {
     int b = btnOrder[r];
     for (int c = 0; c < NUM_CH; c++) {
@@ -287,8 +311,13 @@ static void bsDrawFooter(int peakPt, float aboveDb) {
   lcdText(4, BS_FOOT_Y + 2, s, 2, C_ACC, C_BG);
 }
 
-// True if the frequency is an FPV channel (not a fill-in point).
+// True if the frequency is a channel (not a fill-in point): one of the
+// selected video system's channels, or with All bands/chans any FPV channel.
 static bool bsIsChannel(uint16_t mhz) {
+  if (sysOn()) {
+    for (int i = 0; i < sysCount(); i++) if (sysChan(i)->mhz == mhz) return true;
+    return false;
+  }
   for (int b = 0; b < NUM_BANDS; b++)
     for (int c = 0; c < NUM_CH; c++)
       if (FPV_MHZ[b][c] == mhz) return true;

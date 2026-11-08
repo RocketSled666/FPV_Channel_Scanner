@@ -1,6 +1,6 @@
 /*
  * FPV Channel Scanner - Page Activity.cpp
- * Revision: 100
+ * Revision: 101
  *
  * FPV Channel Activity page (the live grid) and the grid sweep that
  * also feeds the Channel Noise and Quietest Channels pages.

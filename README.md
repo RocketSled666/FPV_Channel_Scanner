@@ -93,7 +93,10 @@ Configuration).
   the bars widen to fill the graph. Bars at or above "Busy level" (6 dB by
   default, the same setting as the Noise and Quietest pages) are red when
   the bar's point is a channel frequency (a fill-in point between channels
-  stays green), the rest green, both brighter the stronger they are; the strongest bar is
+  stays green), the rest green, both brighter the stronger they are. With a
+  video system selected, its channels are measured at their own
+  frequencies (replacing FPV channels within 6 MHz of them), only they turn
+  red, and labels and the Peak line use their names (CH4, 153); the strongest bar is
   yellow (the footer colour) and the footer names it, e.g. "Peak: F1 5740
   MHz 22 dB". Every bar on a channel frequency at or above Busy level (the
   red bars, and the yellow one when it's on a channel) gets a label; peaks
@@ -167,9 +170,10 @@ Configuration).
 **Video system:** the "Video system" setting (Video System page) is
 (All bands/chans: all 48 channels, the default), HDZero, DJI, Walksnail or
 OpenIPC. Anything else enables that system's Quietest page, draws only its channels on
-the grid pages, shows a blue marker at the top left of the grids (HDZ, DJI,
-WS, IPC), limits the IMD-Free sets to its channels and the Spectrum band
-buttons to bands holding them. The scanner measures the 48 analog
+the grid pages, shows a blue marker at the top left of the grids, Band Scan
+and Spectrum and next to the IMD-Free title (HDZ, DJI, WS, IPC), limits the
+IMD-Free sets to its channels and the Spectrum band buttons to bands holding
+them, and makes Band Scan name and colour only its channels. The scanner measures the 48 analog
 frequencies, so a system channel that isn't on one uses the nearest
 measured channel within 6 MHz (e.g. DJI O3 5669 MHz uses E3 5665).
 
@@ -227,6 +231,10 @@ bar ("Radio Page", "Display Page", ...), then a Save / Discard page. The "Config
   across power cycles.
 - **ENTER (short)** on Channel Noise or a Quietest page: clear the noise history.
   (Re-learning the noise floor also clears it.)
+- **ENTER (short)** on IMD-Free with no set in any column: **Help**, a box
+  saying which Configuration settings to change to get sets (FCC channels,
+  DJI model O4 race, WS race mode, HDZ low band, IMD min spacing ...);
+  ENTER again closes it.
 - **ENTER (short)** on IMD-Free: hold the channel sets (they stop being
   re-picked and "Hold" flashes under the table); ENTER again releases them.
   The hold is kept when you go to another page and come back.
@@ -353,70 +361,87 @@ Configuration menu pages.
 <td align="center"><img src="docs/screenshots/08%20Band%20Scan%20%28Hold%29.png" width="320" alt="Band Scan, held (ENTER)"><br>Band Scan, held (ENTER)</td>
 </tr>
 <tr>
-<td align="center"><img src="docs/screenshots/09%20Spectrum%20%28Raceband%29.png" width="320" alt="Spectrum (Raceband) with waterfall"><br>Spectrum (Raceband) with waterfall</td>
-<td align="center"><img src="docs/screenshots/10%20Spectrum%20%28HDZero%29.png" width="320" alt="Spectrum, HDZero (bands it can't use darker)"><br>Spectrum, HDZero (bands it can't use darker)</td>
+<td align="center"><img src="docs/screenshots/09%20Band%20Scan%20%28HDZero%29.png" width="320" alt="Band Scan, HDZero"><br>Band Scan, HDZero</td>
+<td align="center"><img src="docs/screenshots/10%20Band%20Scan%20%28DJI%29.png" width="320" alt="Band Scan, DJI O4 (its channel names)"><br>Band Scan, DJI O4 (its channel names)</td>
 </tr>
 <tr>
-<td align="center"><img src="docs/screenshots/11%20FPV%20Channel%20Noise.png" width="320" alt="FPV Channel Noise"><br>FPV Channel Noise</td>
-<td align="center"><img src="docs/screenshots/12%20FPV%20Channel%20Noise%20%28HDZero%29.png" width="320" alt="FPV Channel Noise, HDZero"><br>FPV Channel Noise, HDZero</td>
+<td align="center"><img src="docs/screenshots/11%20Band%20Scan%20%28Walksnail%29.png" width="320" alt="Band Scan, Walksnail"><br>Band Scan, Walksnail</td>
+<td align="center"><img src="docs/screenshots/12%20Band%20Scan%20%28OpenIPC%29.png" width="320" alt="Band Scan, OpenIPC (Wi-Fi channel numbers)"><br>Band Scan, OpenIPC (Wi-Fi channel numbers)</td>
 </tr>
 <tr>
-<td align="center"><img src="docs/screenshots/13%20FPV%20Channel%20Noise%20%28DJI%29.png" width="320" alt="FPV Channel Noise, DJI"><br>FPV Channel Noise, DJI</td>
-<td align="center"><img src="docs/screenshots/14%20FPV%20Channel%20Noise%20%28Walksnail%29.png" width="320" alt="FPV Channel Noise, Walksnail"><br>FPV Channel Noise, Walksnail</td>
+<td align="center"><img src="docs/screenshots/13%20Spectrum%20%28Raceband%29.png" width="320" alt="Spectrum (Raceband) with waterfall"><br>Spectrum (Raceband) with waterfall</td>
+<td align="center"><img src="docs/screenshots/14%20Spectrum%20%28HDZero%29.png" width="320" alt="Spectrum, HDZero (bands it can't use darker)"><br>Spectrum, HDZero (bands it can't use darker)</td>
 </tr>
 <tr>
-<td align="center"><img src="docs/screenshots/15%20FPV%20Channel%20Noise%20%28OpenIPC%29.png" width="320" alt="FPV Channel Noise, OpenIPC"><br>FPV Channel Noise, OpenIPC</td>
-<td align="center"><img src="docs/screenshots/16%20FPV%20Channel%20Noise%20with%20Wait%20popup.png" width="320" alt="Wait pop-up (Quietest not ready)"><br>Wait pop-up (Quietest not ready)</td>
+<td align="center"><img src="docs/screenshots/15%20Spectrum%20%28DJI%29.png" width="320" alt="Spectrum, DJI"><br>Spectrum, DJI</td>
+<td align="center"><img src="docs/screenshots/16%20Spectrum%20%28Walksnail%29.png" width="320" alt="Spectrum, Walksnail"><br>Spectrum, Walksnail</td>
 </tr>
 <tr>
-<td align="center"><img src="docs/screenshots/17%20Quietest%20Channels.png" width="320" alt="Quietest Channels"><br>Quietest Channels</td>
-<td align="center"><img src="docs/screenshots/18%20Quietest%20for%20HDZero.png" width="320" alt="Quietest for HDZero"><br>Quietest for HDZero</td>
+<td align="center"><img src="docs/screenshots/17%20Spectrum%20%28OpenIPC%29.png" width="320" alt="Spectrum, OpenIPC"><br>Spectrum, OpenIPC</td>
+<td align="center"><img src="docs/screenshots/18%20FPV%20Channel%20Noise.png" width="320" alt="FPV Channel Noise"><br>FPV Channel Noise</td>
 </tr>
 <tr>
-<td align="center"><img src="docs/screenshots/19%20Quietest%20for%20DJI.png" width="320" alt="Quietest for DJI"><br>Quietest for DJI</td>
-<td align="center"><img src="docs/screenshots/20%20Quietest%20for%20Walksnail.png" width="320" alt="Quietest for Walksnail"><br>Quietest for Walksnail</td>
+<td align="center"><img src="docs/screenshots/19%20FPV%20Channel%20Noise%20%28HDZero%29.png" width="320" alt="FPV Channel Noise, HDZero"><br>FPV Channel Noise, HDZero</td>
+<td align="center"><img src="docs/screenshots/20%20FPV%20Channel%20Noise%20%28DJI%29.png" width="320" alt="FPV Channel Noise, DJI"><br>FPV Channel Noise, DJI</td>
 </tr>
 <tr>
-<td align="center"><img src="docs/screenshots/21%20Quietest%20for%20OpenIPC.png" width="320" alt="Quietest for OpenIPC"><br>Quietest for OpenIPC</td>
-<td align="center"><img src="docs/screenshots/22%20IMD-Free%20Channels.png" width="320" alt="IMD-Free Channels"><br>IMD-Free Channels</td>
+<td align="center"><img src="docs/screenshots/21%20FPV%20Channel%20Noise%20%28Walksnail%29.png" width="320" alt="FPV Channel Noise, Walksnail"><br>FPV Channel Noise, Walksnail</td>
+<td align="center"><img src="docs/screenshots/22%20FPV%20Channel%20Noise%20%28OpenIPC%29.png" width="320" alt="FPV Channel Noise, OpenIPC"><br>FPV Channel Noise, OpenIPC</td>
 </tr>
 <tr>
-<td align="center"><img src="docs/screenshots/23%20IMD-Free%20Channels%20%28Hold%2C%20Best%20IMD%20first%29.png" width="320" alt="IMD-Free Channels, held, Best IMD first (noisier channels shaded red)"><br>IMD-Free Channels, held, Best IMD first (noisier channels shaded red)</td>
-<td align="center"><img src="docs/screenshots/24%20IMD-Free%20Channels%20%28HDZero%29.png" width="320" alt="IMD-Free Channels, HDZero"><br>IMD-Free Channels, HDZero</td>
+<td align="center"><img src="docs/screenshots/23%20FPV%20Channel%20Noise%20with%20Wait%20popup.png" width="320" alt="Wait pop-up (Quietest not ready)"><br>Wait pop-up (Quietest not ready)</td>
+<td align="center"><img src="docs/screenshots/24%20Quietest%20Channels.png" width="320" alt="Quietest Channels"><br>Quietest Channels</td>
 </tr>
 <tr>
-<td align="center"><img src="docs/screenshots/25%20IMD-Free%20Channels%20%28DJI%29.png" width="320" alt="IMD-Free Channels, DJI"><br>IMD-Free Channels, DJI</td>
-<td align="center"><img src="docs/screenshots/26%20IMD-Free%20Channels%20%28Walksnail%29.png" width="320" alt="IMD-Free Channels, Walksnail"><br>IMD-Free Channels, Walksnail</td>
+<td align="center"><img src="docs/screenshots/25%20Quietest%20for%20HDZero.png" width="320" alt="Quietest for HDZero"><br>Quietest for HDZero</td>
+<td align="center"><img src="docs/screenshots/26%20Quietest%20for%20DJI.png" width="320" alt="Quietest for DJI"><br>Quietest for DJI</td>
 </tr>
 <tr>
-<td align="center"><img src="docs/screenshots/27%20IMD-Free%20Channels%20%28OpenIPC%29.png" width="320" alt="IMD-Free Channels, OpenIPC"><br>IMD-Free Channels, OpenIPC</td>
-<td align="center"><img src="docs/screenshots/28%20Configuration%20-%20Help.png" width="320" alt="Configuration: Help (opens first)"><br>Configuration: Help (opens first)</td>
+<td align="center"><img src="docs/screenshots/27%20Quietest%20for%20Walksnail.png" width="320" alt="Quietest for Walksnail"><br>Quietest for Walksnail</td>
+<td align="center"><img src="docs/screenshots/28%20Quietest%20for%20OpenIPC.png" width="320" alt="Quietest for OpenIPC"><br>Quietest for OpenIPC</td>
 </tr>
 <tr>
-<td align="center"><img src="docs/screenshots/29%20Configuration%20-%20Video%20System.png" width="320" alt="Configuration: Video System (All bands/chans)"><br>Configuration: Video System (All bands/chans)</td>
-<td align="center"><img src="docs/screenshots/30%20Configuration%20-%20Video%20System%20%28HDZero%29.png" width="320" alt="Configuration: Video System, HDZero"><br>Configuration: Video System, HDZero</td>
+<td align="center"><img src="docs/screenshots/29%20IMD-Free%20Channels.png" width="320" alt="IMD-Free Channels"><br>IMD-Free Channels</td>
+<td align="center"><img src="docs/screenshots/30%20IMD-Free%20Channels%20%28Hold%2C%20Best%20IMD%20first%29.png" width="320" alt="IMD-Free Channels, held, Best IMD first (noisier channels shaded red)"><br>IMD-Free Channels, held, Best IMD first (noisier channels shaded red)</td>
 </tr>
 <tr>
-<td align="center"><img src="docs/screenshots/31%20Configuration%20-%20Video%20System%20%28DJI%29.png" width="320" alt="Configuration: Video System, DJI"><br>Configuration: Video System, DJI</td>
-<td align="center"><img src="docs/screenshots/32%20Configuration%20-%20Video%20System%20%28DJI%20O4%20race%29.png" width="320" alt="Configuration: Video System, DJI O4 race"><br>Configuration: Video System, DJI O4 race</td>
+<td align="center"><img src="docs/screenshots/31%20IMD-Free%20Channels%20%28HDZero%29.png" width="320" alt="IMD-Free Channels, HDZero"><br>IMD-Free Channels, HDZero</td>
+<td align="center"><img src="docs/screenshots/32%20IMD-Free%20Channels%20%28DJI%29.png" width="320" alt="IMD-Free Channels, DJI (FCC channels)"><br>IMD-Free Channels, DJI (FCC channels)</td>
 </tr>
 <tr>
-<td align="center"><img src="docs/screenshots/33%20Configuration%20-%20Video%20System%20%28Walksnail%29.png" width="320" alt="Configuration: Video System, Walksnail"><br>Configuration: Video System, Walksnail</td>
-<td align="center"><img src="docs/screenshots/34%20Configuration%20-%20Video%20System%20%28OpenIPC%29.png" width="320" alt="Configuration: Video System, OpenIPC"><br>Configuration: Video System, OpenIPC</td>
+<td align="center"><img src="docs/screenshots/33%20IMD-Free%20Channels%20%28DJI%20stock%2C%20no%20set%29.png" width="320" alt="IMD-Free Channels, DJI O4 stock: no set, ENTER = Help"><br>IMD-Free Channels, DJI O4 stock: no set, ENTER = Help</td>
+<td align="center"><img src="docs/screenshots/34%20IMD-Free%20Channels%20%28no%20set%20Help%29.png" width="320" alt="IMD-Free no-set Help box"><br>IMD-Free no-set Help box</td>
 </tr>
 <tr>
-<td align="center"><img src="docs/screenshots/35%20Configuration%20-%20Radio.png" width="320" alt="Configuration: Radio"><br>Configuration: Radio</td>
-<td align="center"><img src="docs/screenshots/36%20Configuration%20-%20Scanning.png" width="320" alt="Configuration: Scanning"><br>Configuration: Scanning</td>
+<td align="center"><img src="docs/screenshots/35%20IMD-Free%20Channels%20%28Walksnail%29.png" width="320" alt="IMD-Free Channels, Walksnail"><br>IMD-Free Channels, Walksnail</td>
+<td align="center"><img src="docs/screenshots/36%20IMD-Free%20Channels%20%28OpenIPC%29.png" width="320" alt="IMD-Free Channels, OpenIPC"><br>IMD-Free Channels, OpenIPC</td>
 </tr>
 <tr>
-<td align="center"><img src="docs/screenshots/37%20Configuration%20-%20Channel%20Selection.png" width="320" alt="Configuration: Channel Selection"><br>Configuration: Channel Selection</td>
-<td align="center"><img src="docs/screenshots/38%20Configuration%20-%20Display.png" width="320" alt="Configuration: Display"><br>Configuration: Display</td>
+<td align="center"><img src="docs/screenshots/37%20Configuration%20-%20Help.png" width="320" alt="Configuration: Help (opens first)"><br>Configuration: Help (opens first)</td>
+<td align="center"><img src="docs/screenshots/38%20Configuration%20-%20Video%20System.png" width="320" alt="Configuration: Video System (All bands/chans)"><br>Configuration: Video System (All bands/chans)</td>
 </tr>
 <tr>
-<td align="center"><img src="docs/screenshots/39%20Configuration%20-%20Controls.png" width="320" alt="Configuration: Controls"><br>Configuration: Controls</td>
-<td align="center"><img src="docs/screenshots/40%20Configuration%20-%20Save%20-%20Discard.png" width="320" alt="Configuration: Save / Discard"><br>Configuration: Save / Discard</td>
+<td align="center"><img src="docs/screenshots/39%20Configuration%20-%20Video%20System%20%28HDZero%29.png" width="320" alt="Configuration: Video System, HDZero"><br>Configuration: Video System, HDZero</td>
+<td align="center"><img src="docs/screenshots/40%20Configuration%20-%20Video%20System%20%28DJI%29.png" width="320" alt="Configuration: Video System, DJI"><br>Configuration: Video System, DJI</td>
 </tr>
 <tr>
-<td align="center"><img src="docs/screenshots/41%20Configuration%20-%20editing%20a%20value.png" width="320" alt="Configuration: editing a value"><br>Configuration: editing a value</td>
+<td align="center"><img src="docs/screenshots/41%20Configuration%20-%20Video%20System%20%28DJI%20O4%20race%29.png" width="320" alt="Configuration: Video System, DJI O4 race"><br>Configuration: Video System, DJI O4 race</td>
+<td align="center"><img src="docs/screenshots/42%20Configuration%20-%20Video%20System%20%28Walksnail%29.png" width="320" alt="Configuration: Video System, Walksnail"><br>Configuration: Video System, Walksnail</td>
+</tr>
+<tr>
+<td align="center"><img src="docs/screenshots/43%20Configuration%20-%20Video%20System%20%28OpenIPC%29.png" width="320" alt="Configuration: Video System, OpenIPC"><br>Configuration: Video System, OpenIPC</td>
+<td align="center"><img src="docs/screenshots/44%20Configuration%20-%20Radio.png" width="320" alt="Configuration: Radio"><br>Configuration: Radio</td>
+</tr>
+<tr>
+<td align="center"><img src="docs/screenshots/45%20Configuration%20-%20Scanning.png" width="320" alt="Configuration: Scanning"><br>Configuration: Scanning</td>
+<td align="center"><img src="docs/screenshots/46%20Configuration%20-%20Channel%20Selection.png" width="320" alt="Configuration: Channel Selection"><br>Configuration: Channel Selection</td>
+</tr>
+<tr>
+<td align="center"><img src="docs/screenshots/47%20Configuration%20-%20Display.png" width="320" alt="Configuration: Display"><br>Configuration: Display</td>
+<td align="center"><img src="docs/screenshots/48%20Configuration%20-%20Controls.png" width="320" alt="Configuration: Controls"><br>Configuration: Controls</td>
+</tr>
+<tr>
+<td align="center"><img src="docs/screenshots/49%20Configuration%20-%20Save%20-%20Discard.png" width="320" alt="Configuration: Save / Discard"><br>Configuration: Save / Discard</td>
+<td align="center"><img src="docs/screenshots/50%20Configuration%20-%20editing%20a%20value.png" width="320" alt="Configuration: editing a value"><br>Configuration: editing a value</td>
 </tr>
 </table>

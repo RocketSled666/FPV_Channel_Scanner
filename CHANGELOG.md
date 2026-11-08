@@ -2,6 +2,23 @@
 
 Revision numbers match the `Revision:` line in the source headers.
 
+## Revision 101
+- Band Scan follows the video system: the system's channels are measured at
+  their own frequencies (in place of FPV channels within 6 MHz of them, e.g.
+  Walksnail CH4 5770 instead of R4 5769), labels and the Peak line use the
+  system's names (CH4, 153), and only its channels turn red. The rest of the
+  band is still swept. Points are rebuilt when the video system changes.
+- Video system tag (blue HDZ / DJI / WS / IPC) on Band Scan and Spectrum in
+  the grids' spot (top left), and on IMD-Free right of the title. Shared
+  drawSysMarker.
+- IMD-Free: when no column has a set (e.g. DJI O4 or Walksnail stock
+  channels, all closer than IMD min spacing), ENTER is "Help" and opens a
+  centred box: the channels in use, the spacing a set needs, and the
+  Configuration settings that would give sets for the current setup (FCC
+  channels, DJI model O4 race, WS race mode, HDZ low band, HDZ E1 and F1,
+  IMD use L band, IMD min spacing). ENTER ("Close") or a page change closes it.
+- Settings: sysCount / sysChan / sysSig.
+
 ## Revision 100
 - Button hints on the bottom line of every page (scanner pages and
   Configuration), in key order: "Left:" at the left edge, "ENTER:" centred,

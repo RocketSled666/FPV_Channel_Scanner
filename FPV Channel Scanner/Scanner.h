@@ -1,6 +1,6 @@
 /*
  * FPV Channel Scanner - Scanner.h
- * Revision: 100
+ * Revision: 101
  *
  * Shared declarations: every global variable (defined in State.cpp) and
  * every function, grouped by the file that defines it. Each .cpp file
@@ -34,6 +34,10 @@ const SysChan *sysAt(int b, int c);   // that system channel, or nullptr
 const char *sysName();            // "HDZero", "DJI", "Walksnail", "OpenIPC"
 const char *sysTag();             // "HDZ", "DJI", "WS", "IPC" (grid corner marker)
 void sysChannelsText(char *buf, int len);   // footer line: what the system uses
+int sysCount();                   // the system's channels (0 for All bands/chans)...
+const SysChan *sysChan(int i);    // ...and each one, in table order
+int sysSig();                     // changes when any setting the channel table depends on changes
+void drawSysMarker();             // blue video system tag ("HDZ") at the top left, under the title
 bool gridShown(int b, int c);
 bool bandEnabled(int b);          // spectrum band button usable (HDZero mode: band has an HDZero channel)     // false = box left blank (HDZero mode, channel HDZero can't use)
 
@@ -208,6 +212,7 @@ void quietDrawEntry(int slot, int idx);
 void quietDraw(bool learning, uint32_t learnStart);
 extern bool imdHold;              // IMD-Free page: sets held (kept when the page is left)
 void imdToggleBestFirst();        // IMD-Free page, held: ENTER held = Quietest first / Best IMD first
+void imdEnterShort();            // IMD-Free page: ENTER = Hold / Release, or Help / Close with no sets
 void imdToggleHold();             // IMD-Free page: ENTER freezes / releases the sets
 void imdRepaint();                // IMD-Free page: redraw the table after the pop-up
 

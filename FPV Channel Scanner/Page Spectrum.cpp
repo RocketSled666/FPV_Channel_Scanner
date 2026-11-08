@@ -1,6 +1,6 @@
 /*
  * FPV Channel Scanner - Page Spectrum.cpp
- * Revision: 100
+ * Revision: 101
  *
  * Spectrum page: continuous sweep across one band in SPEC_STEP_MHZ
  * steps, with channel markers, values and band buttons. The sweep point
@@ -191,6 +191,7 @@ void specDrawStatic() {
   lcdText(4, 4, t, 1, C_ACC, C_BG);
   snprintf(t, sizeof(t), "%u-%u MHz", specLo, specHi);
   lcdText(4, 14, t, 1, C_DIM, C_BG);
+  drawSysMarker();                                   // left of the band buttons
 
   // y axis labels (dB above floor, auto range)
   if (specRange < cfg.span) { specRange = cfg.span; specRangeNeedMs = millis(); }

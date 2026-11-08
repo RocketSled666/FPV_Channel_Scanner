@@ -1,6 +1,6 @@
 /*
  * FPV Channel Scanner - Input.cpp
- * Revision: 100
+ * Revision: 101
  *
  * KEY_L / KEY_R / ENTER button polling. Called often, including from inside
  * the radio sweeps, so presses are caught while a sweep is running.
