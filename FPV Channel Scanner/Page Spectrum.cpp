@@ -1,6 +1,6 @@
 /*
  * FPV Channel Scanner - Page Spectrum.cpp
- * Revision: 87
+ * Revision: 88
  *
  * Spectrum page: continuous sweep across one band in SPEC_STEP_MHZ
  * steps, with channel markers, values and band buttons. The sweep point
@@ -312,12 +312,15 @@ void specSweep() {
     if (flo[i] == 0 || v < flo[i]) flo[i] = v;
     else if (!learning) flo[i] += 0.01f;
   }
-  // same anti-learn clamp as the grid: no point's floor > median + 4 dB
-  float tmp[SPEC_MAX_PTS];
-  for (int i = 0; i < specPts; i++) tmp[i] = flo[i];
-  for (int i = 1; i < specPts; i++) { float k = tmp[i]; int j = i - 1; while (j >= 0 && tmp[j] > k) { tmp[j+1] = tmp[j]; j--; } tmp[j+1] = k; }
-  float med = tmp[specPts / 2];
-  for (int i = 0; i < specPts; i++) if (flo[i] > med + 4.0f) flo[i] = med + 4.0f;
+  // same anti-learn clamp as the grid: no point's floor > median + 4 dB,
+  // over learned floors only (0 = not learned, e.g. above "Max MHz")
+  float tmp[SPEC_MAX_PTS]; int nf = 0;
+  for (int i = 0; i < specPts; i++) if (flo[i] != 0) tmp[nf++] = flo[i];
+  for (int i = 1; i < nf; i++) { float k = tmp[i]; int j = i - 1; while (j >= 0 && tmp[j] > k) { tmp[j+1] = tmp[j]; j--; } tmp[j+1] = k; }
+  if (nf > 0) {
+    float med = tmp[nf / 2];
+    for (int i = 0; i < specPts; i++) if (flo[i] != 0 && flo[i] > med + 4.0f) flo[i] = med + 4.0f;
+  }
   if (!learning) specFloorValid[specBand] = true;
 
   // draw: each pixel column interpolates, by frequency, between the two

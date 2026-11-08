@@ -2,6 +2,32 @@
 
 Revision numbers match the `Revision:` line in the source headers.
 
+## Revision 88
+- Fix: KEY_L from IMD-Free with too little noise history showed the
+  "Wait NNs" pop-up, and when it went the IMD rows under it stayed black
+  until the sets changed. The Quietest and IMD pages now stop drawing while
+  the pop-up is up, and the IMD table is redrawn (sets and hold kept) when
+  it goes.
+- Fix: the floor clamp (median + 4 dB) counted unlearned floors (0, e.g.
+  above "Max MHz") in the median. Real floors are negative, so those
+  zeros sorted to the top and lost the "not learned" marker; on the
+  spectrum, with half a band above Max MHz, the clamp stopped working.
+  Grid and spectrum now use learned floors only, and the spectrum floor
+  seed skips unlearned grid channels.
+- Fix: the Noise page no longer overflows an int when no channel has live
+  data.
+- The LCD is now driven through ESP-IDF's esp_lcd SPI panel IO (hardware
+  CS and DC, DMA), as in Waveshare's BSP, instead of the Arduino SPI
+  library. After a flash or a USB reset (which leaves the panel powered)
+  the screen stayed blank or showed garbled text and stray pixels until a
+  power cycle; Waveshare's factory firmware came back, and so does this.
+- A software reset (0x01) is sent after the IO-expander reset, before the
+  init sequence.
+- Pixels go out in chunks of up to 16 full-width rows from two buffers used
+  in turn (Memory Write, then Memory Write Continue), so a buffer is never
+  refilled while it is being sent. About 30 KB more RAM; grid drawing takes
+  about 40 ms per sweep (4.4 sweeps/s, was 5.0) at the same 40 MHz clock.
+
 ## Revision 87
 - New "Max MHz" setting (General page; Off by default, or 5800-5995 MHz in
   5 MHz steps). Frequencies above it aren't measured: grid channels show

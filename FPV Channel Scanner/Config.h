@@ -1,6 +1,6 @@
 /*
  * FPV Channel Scanner - Config.h
- * Revision: 87
+ * Revision: 88
  *
  * Hardware pins, tuning constants, shared types, frequency table, colors
  * and the undocumented ESP32-C5 radio access used by the scanner.
@@ -10,10 +10,9 @@
 
 // Firmware revision shown on the Save / Discard page. Keep it equal to the
 // "Revision:" line in the file headers.
-#define FW_REVISION 87
+#define FW_REVISION 88
 
 #include <Arduino.h>
-#include <SPI.h>
 #include <Wire.h>
 #include <WiFi.h>
 #include "esp_wifi.h"

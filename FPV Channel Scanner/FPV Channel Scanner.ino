@@ -1,6 +1,6 @@
 /*
  * FPV Channel Scanner
- * Revision: 87
+ * Revision: 88
  * Board : Waveshare ESP32-C5-LCD-2.73 (ESP32-C5, ILI9488 320x320 SPI LCD)
  * Core  : Arduino-ESP32 3.3.x  (Tools > Board > "ESP32C5 Dev Module")
  *
@@ -208,6 +208,10 @@
  *       after 5 s); waterfall stays on the span
  *   87  "Max MHz" setting: frequencies above it aren't measured (grids "--",
  *       spectrum greyed), for boards that read junk at the top of the band
+ *   88  Fixes: IMD-Free table repainted after the Wait pop-up; floor clamp
+ *       uses learned floors only; no overflow with no live channel; LCD
+ *       driven through ESP-IDF's esp_lcd panel IO with a software reset,
+ *       so the screen comes back after a flash or USB reset
  */
 
 #include "Scanner.h"
@@ -225,15 +229,12 @@ void setup() {
   delay(200);
   Serial.println("\nFPV Channel Scanner (ESP32-C5)");
 
-  pinMode(PIN_LCD_CS, OUTPUT); digitalWrite(PIN_LCD_CS, HIGH);
   pinMode(PIN_SD_CS,  OUTPUT); digitalWrite(PIN_SD_CS,  HIGH);
-  pinMode(PIN_LCD_DC, OUTPUT);
   pinMode(PIN_KEY_L,     INPUT_PULLUP);
   pinMode(PIN_KEY_R,     INPUT_PULLUP);
   pinMode(PIN_BTN_ENTER, INPUT_PULLUP);
 
   Wire.begin(PIN_I2C_SDA, PIN_I2C_SCL, 400000);
-  SPI.begin(PIN_LCD_SCK, PIN_LCD_MISO, PIN_LCD_MOSI, -1);
 
   lcdInit();
   showSplash();                               // picture + "Press forward+backward..." hint
@@ -296,7 +297,8 @@ void loop() {
   if (popupUntilMs && (int32_t)(millis() - popupUntilMs) >= 0) {
     popupUntilMs = 0;
     lcdFill(POPUP_X, POPUP_Y, POPUP_W, POPUP_H, 0, 0, 0);   // clear it, gaps included
-    actInvalidate();                         // redraw the boxes the pop-up covered
+    if (mode == MODE_IMD) imdRepaint();      // redraw what the pop-up covered
+    else actInvalidate();
   }
   if (evEnterLong) {                        // hold: re-learn the noise floor
     evEnterLong = false;

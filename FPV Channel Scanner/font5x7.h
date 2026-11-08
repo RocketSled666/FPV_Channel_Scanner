@@ -1,5 +1,5 @@
 // FPV Channel Scanner - font5x7.h
-// Revision: 87
+// Revision: 88
 //
 // Classic 5x7 bitmap font, printable ASCII 0x20..0x7E (upper and lower case).
 // Each glyph is 5 columns, LSB = top row.

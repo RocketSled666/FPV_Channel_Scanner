@@ -1,6 +1,6 @@
 /*
  * FPV Channel Scanner - Page Quietest.cpp
- * Revision: 87
+ * Revision: 88
  *
  * Quietest Channels and Quietest for HDZero pages: the QUIET_LIST_N
  * quietest channels from the Channel Noise history, in two columns of 8:
@@ -221,6 +221,18 @@ static void imdDrawStatic() {
   imdInvalidate();
   quietFooterDirty = true;
   learnShownPct = -1; scanAnimY = -1;
+}
+
+// Redraws the column dividers and every row and score, keeping the sets and
+// the hold as they are. Used when the pop-up is taken down.
+void imdRepaint() {
+  for (int col = 1; col < IMD_COLS; col++)
+    lcdFillC(col * IMD_COL_W, IMD_HEAD_Y - 4, 1, IMD_SCORE_Y + 12 - (IMD_HEAD_Y - 4), C_MARK);
+  for (int col = 0; col < IMD_COLS; col++) {
+    imdShownScore[col] = -1000;
+    for (int i = 0; i < IMD_MAX_N; i++) { imdShownSet[col][i] = -2; imdMoveMs[col][i] = 0; }
+    imdDrawColumn(col);
+  }
 }
 
 // Redraw one column if its set or score changed, or a moved channel in it is
