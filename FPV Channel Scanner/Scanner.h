@@ -1,6 +1,6 @@
 /*
  * FPV Channel Scanner - Scanner.h
- * Revision: 95
+ * Revision: 96
  *
  * Shared declarations: every global variable (defined in State.cpp) and
  * every function, grouped by the file that defines it. Each .cpp file
@@ -19,6 +19,8 @@ void loadSettings();
 void saveSettings();
 void resetSettingsToDefaults();
 void saveSpan();
+ScreenMode loadLastPage();        // last page shown (sets specBand too)
+void saveLastPage();              // current page and spectrum band
 void formatSetting(int i, char *buf, int len);
 void stepSetting(int i, int dir);
 bool hdzeroOk(int b, int c);

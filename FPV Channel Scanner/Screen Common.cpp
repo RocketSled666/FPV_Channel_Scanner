@@ -1,6 +1,6 @@
 /*
  * FPV Channel Scanner - Screen Common.cpp
- * Revision: 95
+ * Revision: 96
  *
  * Drawing shared by several pages (grid frame, Scanning dots, span /
  * history label, learning progress, title status), the pop-up, and
@@ -157,4 +157,5 @@ void enterMode(ScreenMode m) {
     specSetBand(specBand);
     specDrawStatic();
   }
+  saveLastPage();
 }

@@ -2,6 +2,16 @@
 
 Revision numbers match the `Revision:` line in the source headers.
 
+## Revision 96
+- The page shown last is saved in flash (with the spectrum band) and shown
+  again after the splash at the next start-up, instead of always the
+  Activity grid. If the saved page is a Quietest page and the HDZero
+  setting has changed since, the Quietest page that matches the current
+  setting opens instead. A restored Quietest or IMD-Free page fills in as
+  noise history builds up (the "Wait" minimum isn't applied).
+- New "Restore page" setting (Controls page, default On); Off always starts
+  on the Activity grid with Raceband on the spectrum.
+
 ## Revision 95
 - New Band Scan page between Spectrum and Noise, modelled on the ArduVidRx
   band scanner. One sweep covers the whole band: every channel frequency

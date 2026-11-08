@@ -1,6 +1,6 @@
 /*
  * FPV Channel Scanner - Page Band Scan.cpp
- * Revision: 95
+ * Revision: 96
  *
  * Band Scan page, modelled on the ArduVidRx band scanner: one sweep over
  * the whole 5.3-6.0 GHz band, measuring every FPV channel frequency plus

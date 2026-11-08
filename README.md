@@ -137,7 +137,8 @@ limits the IMD-Free page to HDZero channels. The HDZero lists can leave out L1-L
 ## Configuration
 At power-on a splash screen shows for 5 seconds while the radio starts. Press
 KEY_L and KEY_R together during it to open the Configuration menu; otherwise
-the Activity grid follows. You can also open the menu at any time by holding
+the page shown last before power-off or restart follows (the Activity grid the
+first time, or always with "Restore page" Off), on the same spectrum band. You can also open the menu at any time by holding
 KEY_L and KEY_R together for 5 seconds on any page.
 
 The menu opens on a Help page that lists what each button does on each
@@ -152,7 +153,7 @@ bar ("Radio Page", "Display Page", ...), then a Save / Discard page. The "Config
 | Channel Selection | Busy level (dB); minimum history before Quietest opens (s); L Band Limit (1-8): most L-band channels in the Quietest lists and in each IMD-free set (8 = no limit); IMD min spacing (MHz), IMD use L band, IMD refresh (s) |
 | HDZero | HDZero features, low band L1-L8, E1 and F1 |
 | Display | Span (dB), Spectrum auto range, shading gamma, full-red spread (dB), peak decay, waterfall log curve (0 = linear), moved-channel fade (ms, 0 = off), backlight (%) |
-| Controls | Long press, Configuration hold, splash time, splash combo, pop-up time, scanning-dot step (ms) |
+| Controls | Long press, Configuration hold, splash time, splash combo (ms); Restore page (start on the last page shown, default On); pop-up time, scanning-dot step (ms) |
 
 - **KEY_L / KEY_R**: move up / down the list (past the end of a page goes to
   the next or previous page).

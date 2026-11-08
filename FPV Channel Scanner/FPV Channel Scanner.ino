@@ -1,6 +1,6 @@
 /*
  * FPV Channel Scanner
- * Revision: 95
+ * Revision: 96
  * Board : Waveshare ESP32-C5-LCD-2.73 (ESP32-C5, ILI9488 320x320 SPI LCD)
  * Core  : Arduino-ESP32 3.3.x  (Tools > Board > "ESP32C5 Dev Module")
  *
@@ -56,7 +56,9 @@
  *   "Press forward+backward buttons now for Settings screen, or hold for
  *   >5s at any time"; the radio
  *   starts underneath it. Pressing KEY_L + KEY_R together during the splash
- *   opens the Configuration menu; otherwise the Activity grid follows.
+ *   opens the Configuration menu; otherwise the page shown last follows
+ *   (saved in flash with the spectrum band; the Activity grid the first
+ *   time, or always with "Restore page" Off).
  *
  * Configuration: hold KEY_L + KEY_R for 5 s on any page (or press both
  *   during the splash) to open the Configuration menu. It opens on a Help
@@ -229,6 +231,8 @@
  *   95  Band Scan page after Spectrum: whole-band bar graph like the
  *       ArduVidRx band scanner, peak labels, ENTER pauses / resumes,
  *       axis ends at "Max MHz"
+ *   96  The last page shown (and spectrum band) is restored at start-up
+ *       ("Restore page" setting, Controls page, default On)
  */
 
 #include "Scanner.h"
@@ -243,6 +247,7 @@ void setup() {
   Serial.begin(115200);
   buildButtonOrder();          // band order for grid rows and spectrum buttons
   loadSettings();              // all settings saved in flash (defaults if none)
+  ScreenMode startPage = loadLastPage();   // page shown before the restart
   delay(200);
   Serial.println("\nFPV Channel Scanner (ESP32-C5)");
 
@@ -279,8 +284,7 @@ void setup() {
   // Splash stays up for SPLASH_MS in total; KEY_L + KEY_R pressed together
   // during it opens the Configuration (settings) menu, which ends in a restart.
   if (splashWait(splashStart)) runConfigMenu();
-  gridDrawStatic();
-  gridInvalidate();
+  enterMode(startPage);                      // last page shown before the restart
 }
 
 void loop() {
@@ -343,6 +347,7 @@ void loop() {
     } else {                                // next band button
       specSetBand(nextBandInButtonOrder(specBand));
       specDrawStatic();
+      saveLastPage();                       // band shown again after a restart
     }
   }
   delay(1);   // let the Wi-Fi task and watchdog breathe

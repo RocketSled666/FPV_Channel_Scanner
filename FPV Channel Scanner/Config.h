@@ -1,6 +1,6 @@
 /*
  * FPV Channel Scanner - Config.h
- * Revision: 95
+ * Revision: 96
  *
  * Hardware pins, tuning constants, shared types, frequency table, colors
  * and the undocumented ESP32-C5 radio access used by the scanner.
@@ -10,7 +10,7 @@
 
 // Firmware revision shown on the Save / Discard page. Keep it equal to the
 // "Revision:" line in the file headers.
-#define FW_REVISION 95
+#define FW_REVISION 96
 
 #include <Arduino.h>
 #include <Wire.h>
@@ -68,6 +68,7 @@ struct Settings {
   int tuneMode;      // TUNE_DIRECT, TUNE_WIFI or TUNE_WIFI_CH (how the receiver is tuned)
   int rxFilterMhz;   // analog RX filter width, RXF_MIN..RXF_AUTO-1 MHz, or RXF_AUTO = as calibrated
   int specAutoRange; // Spectrum graph height grows to fit peaks (Off = fixed at the span)
+  int restorePage;   // start on the last page shown (Off = Activity grid)
 };
 
 // One line in the Configuration menu (Settings.cpp)

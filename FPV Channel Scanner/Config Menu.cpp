@@ -1,6 +1,6 @@
 /*
  * FPV Channel Scanner - Config Menu.cpp
- * Revision: 95
+ * Revision: 96
  *
  * Configuration menu, opened by holding KEY_L + KEY_R for CONFIG_HOLD_MS on
  * any page.
