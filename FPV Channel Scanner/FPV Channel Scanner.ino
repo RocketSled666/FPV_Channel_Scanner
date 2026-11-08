@@ -1,6 +1,6 @@
 /*
  * FPV Channel Scanner
- * Revision: 93
+ * Revision: 94
  * Board : Waveshare ESP32-C5-LCD-2.73 (ESP32-C5, ILI9488 320x320 SPI LCD)
  * Core  : Arduino-ESP32 3.3.x  (Tools > Board > "ESP32C5 Dev Module")
  *
@@ -219,6 +219,7 @@
  *   92  Config pages grouped by job (Radio, Scanning, Channel Selection,
  *       HDZero, Display, Controls); red "Configuration" title
  *   93  Config page titles end in "Page"
+ *   94  Spectrum height = span again; auto range is a setting (default Off)
  */
 
 #include "Scanner.h"

@@ -82,11 +82,13 @@ pop-up shows and the page stays put.
   graph shows the last 31 sweeps, newest on top (dark blue = weak, bright yellow =
   strong). Each channel's dB above the floor is printed
   under its number (blank below 3 dB, strongest in amber). The graph's
-  height ranges itself: at least the span, and when a signal goes higher
-  the top jumps to fit it (rounded up to 10 dB; the axis label shows it),
-  then steps back down 10 dB at a time after 5 s without needing it. The
-  waterfall stays on the span, so its colours mean the same from row to
-  row (strong signals just saturate to yellow). Band buttons
+  height is the span (stronger signals are cut off at the top). With
+  "Auto range" On (Display page, default Off) it ranges itself instead: at
+  least the span, and when a signal goes higher the top jumps to fit it
+  (rounded up to 10 dB; the axis label shows it), then steps back down
+  10 dB at a time after 5 s without needing it. The waterfall always uses
+  the span, so its colours mean the same from row to row (strong signals
+  just saturate to yellow). Band buttons
   L E R A B F are a row above the graph, as wide as it (selected band in green).
 - **FPV Channel Noise**: same layout. Every channel keeps its own long-term
   statistics from start-up (or the last reset): average dB above the floor,
@@ -138,7 +140,7 @@ bar ("Radio Page", "Display Page", ...), then a Save / Discard page. The "Config
 | Scanning | Samples per channel (grids), learn sweeps, spectrum step (MHz), spectrum samples per point |
 | Channel Selection | Busy level (dB); minimum history before Quietest opens (s); L Band Limit (1-8): most L-band channels in the Quietest lists and in each IMD-free set (8 = no limit); IMD min spacing (MHz), IMD use L band, IMD refresh (s) |
 | HDZero | HDZero features, low band L1-L8, E1 and F1 |
-| Display | Span (dB), shading gamma, full-red spread (dB), peak decay, waterfall log curve (0 = linear), moved-channel fade (ms, 0 = off), backlight (%) |
+| Display | Span (dB), Spectrum auto range, shading gamma, full-red spread (dB), peak decay, waterfall log curve (0 = linear), moved-channel fade (ms, 0 = off), backlight (%) |
 | Controls | Long press, Configuration hold, splash time, splash combo, pop-up time, scanning-dot step (ms) |
 
 - **KEY_L / KEY_R**: move up / down the list (past the end of a page goes to
@@ -153,7 +155,7 @@ bar ("Radio Page", "Display Page", ...), then a Save / Discard page. The "Config
 - **KEY_R / KEY_L**: next / previous page (order above), when released.
 - **KEY_L + KEY_R held 5 s**: open the Configuration menu from any page.
 - **ENTER (short)** on the grid: cycle the span (15-40 dB, default 15). It sets
-  the grid brightness scale and the spectrum's minimum graph height and
+  the grid brightness scale and the spectrum's graph height (minimum with Auto range) and
   waterfall scale, and is remembered
   across power cycles.
 - **ENTER (short)** on Channel Noise: clear the history (does nothing on the Quietest pages).

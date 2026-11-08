@@ -1,6 +1,6 @@
 /*
  * FPV Channel Scanner - Screen Common.cpp
- * Revision: 93
+ * Revision: 94
  *
  * Drawing shared by several pages (grid frame, Scanning dots, span /
  * history label, learning progress, title status), the pop-up, and

@@ -2,6 +2,11 @@
 
 Revision numbers match the `Revision:` line in the source headers.
 
+## Revision 94
+- Spectrum graph height is the span again (peaks above it clip). The
+  Revision 86 auto range is now the "Auto range" setting (Display page,
+  default Off).
+
 ## Revision 93
 - Config page titles on the blue bar end in "Page" ("Help Page", "Radio
   Page", ..., "Save / Discard Page").

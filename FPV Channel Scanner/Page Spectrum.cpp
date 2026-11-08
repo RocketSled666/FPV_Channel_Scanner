@@ -1,6 +1,6 @@
 /*
  * FPV Channel Scanner - Page Spectrum.cpp
- * Revision: 93
+ * Revision: 94
  *
  * Spectrum page: continuous sweep across one band in SPEC_STEP_MHZ
  * steps, with channel markers, values and band buttons. The sweep point
@@ -63,7 +63,7 @@ static void wfDraw() {
   }
 }
 
-// Auto range: the graph's top (dB above floor). At least the Span setting;
+// Graph top (dB above floor): the Span setting, or with "Auto range" On at least the span;
 // grows at once to fit the highest point (rounded up to SPEC_RANGE_STEP), and
 // after SPEC_RANGE_HOLD_MS without needing that much, shrinks one step at a
 // time. The waterfall keeps the fixed Span so its colours stay comparable.
@@ -84,10 +84,11 @@ static void specDrawAxis() {
 // themselves because their heights change).
 static bool specUpdateRange(float maxAbove) {
   int need = cfg.span;
-  if (maxAbove > need) need = min(SPEC_RANGE_MAX, ((int)ceilf(maxAbove / SPEC_RANGE_STEP)) * SPEC_RANGE_STEP);
+  if (cfg.specAutoRange && maxAbove > need) need = min(SPEC_RANGE_MAX, ((int)ceilf(maxAbove / SPEC_RANGE_STEP)) * SPEC_RANGE_STEP);
   uint32_t now = millis();
   int old = specRange;
-  if (need >= specRange) { specRange = need; specRangeNeedMs = now; }
+  if (!cfg.specAutoRange) specRange = need;              // fixed at the span; peaks clip at the top
+  else if (need >= specRange) { specRange = need; specRangeNeedMs = now; }
   else if (now - specRangeNeedMs >= SPEC_RANGE_HOLD_MS) {
     specRange = max(need, specRange - SPEC_RANGE_STEP); specRangeNeedMs = now;
   }

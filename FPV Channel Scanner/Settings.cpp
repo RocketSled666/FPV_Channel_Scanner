@@ -1,6 +1,6 @@
 /*
  * FPV Channel Scanner - Settings.cpp
- * Revision: 93
+ * Revision: 94
  *
  * User settings: the values, their limits and defaults, loading them from
  * flash at start-up and saving them, plus helpers that depend on them.
@@ -47,6 +47,7 @@ Settings cfg = {
   MAX_MHZ_OFF,  // maxMhz
   TUNE_WIFI,    // tuneMode
   16,           // rxFilterMhz
+  0,            // specAutoRange
 };
 
 const SettingDef SETTINGS[] = {
@@ -70,7 +71,8 @@ const SettingDef SETTINGS[] = {
   { "HDZero", "HDZero features", "hdzero",    &cfg.hdzero,        0,   1,  1,  0, 1, 0, "",     "HDZero lists and HDZero-only grids" },
   { "HDZero", "Low band L1-L8",  "hdzLow",    &cfg.hdzLowBand,    0,   1,  1,  1, 1, 0, "",     "Include L1-L8 (needs low band unlocked)" },
   { "HDZero", "E1 and F1",       "hdzE1F1",   &cfg.hdzE1F1,       0,   1,  1,  1, 1, 0, "",     "Include E1 and F1 (not on every product page)" },
-  { "Display", "Span",            "span",      &cfg.span,          5,  60,  5, 15, 0, 0, " dB",  "Activity full brightness, Spectrum min height" },
+  { "Display", "Span",            "span",      &cfg.span,          5,  60,  5, 15, 0, 0, " dB",  "Activity full brightness, Spectrum height" },
+  { "Display", "Auto range",      "specAuto",  &cfg.specAutoRange, 0,  1,  1,  0, 1, 0, "",     "Spectrum height grows to fit peaks" },
   { "Display", "Shading gamma",   "gamma",     &cfg.gamma100,     20, 100,  5, 55, 0, 2, "",     "Noise grid: below 1 brightens small diffs" },
   { "Display", "Full red spread", "redSpread", &cfg.redSpread10,   1,  50,  1,  5, 0, 1, " dB",  "Noise grid: spread shown as full red" },
   { "Display", "Peak decay",      "peakDecay", &cfg.peakDecay10,   2, 100,  2, 18, 0, 1, " px",  "Spectrum: peak-hold dot fall per sweep" },
