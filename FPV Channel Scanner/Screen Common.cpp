@@ -1,6 +1,6 @@
 /*
  * FPV Channel Scanner - Screen Common.cpp
- * Revision: 88
+ * Revision: 93
  *
  * Drawing shared by several pages (grid frame, Scanning dots, span /
  * history label, learning progress, title status), the pop-up, and
@@ -93,7 +93,7 @@ void drawTitleStatus(float sweepsPerSec, bool learning) {
 // outline inside it, then the fill. Shared by the Activity and Noise grids.
 void drawGridBox(int x, int y, RGB fill, bool highlight) {
   int in = 0;
-  if (highlight) { lcdFillC(x, y, CELL_W, CELL_H, C_PEAKH); in = 2; }
+  if (highlight) { lcdFillC(x, y, CELL_W, CELL_H, C_ACC); in = 2; }   // same amber as the footer text
   lcdFillC(x + in, y + in, CELL_W - 2 * in, CELL_H - 2 * in, fill);
 }
 

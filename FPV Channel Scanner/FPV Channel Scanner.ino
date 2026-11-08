@@ -1,6 +1,6 @@
 /*
  * FPV Channel Scanner
- * Revision: 88
+ * Revision: 93
  * Board : Waveshare ESP32-C5-LCD-2.73 (ESP32-C5, ILI9488 320x320 SPI LCD)
  * Core  : Arduino-ESP32 3.3.x  (Tools > Board > "ESP32C5 Dev Module")
  *
@@ -212,6 +212,13 @@
  *       uses learned floors only; no overflow with no live channel; LCD
  *       driven through ESP-IDF's esp_lcd panel IO with a software reset,
  *       so the screen comes back after a flash or USB reset
+ *   89  "Tuning" setting (Direct / Wi-Fi / Wi-Fi+chan: libphy
+ *       phy_change_channel path) and "RX filter" width setting (Auto, 11-23 MHz)
+ *   90  Busy level default 6 dB; grid highlight outline amber like the footer
+ *   91  Defaults: Tuning Wi-Fi, RX filter 16 MHz
+ *   92  Config pages grouped by job (Radio, Scanning, Channel Selection,
+ *       HDZero, Display, Controls); red "Configuration" title
+ *   93  Config page titles end in "Page"
  */
 
 #include "Scanner.h"

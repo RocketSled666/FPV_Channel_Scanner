@@ -1,6 +1,6 @@
 /*
  * FPV Channel Scanner - Config Menu.cpp
- * Revision: 88
+ * Revision: 93
  *
  * Configuration menu, opened by holding KEY_L + KEY_R for CONFIG_HOLD_MS on
  * any page.
@@ -125,7 +125,7 @@ static bool settingsChanged(const Settings &saved) {
 }
 
 // Top line: "Configuration" with "unsaved" and the page counter on the right.
-// Second line: the title of the screen being configured, on a blue bar.
+// Second line: the page title plus "Page", on a blue bar.
 static void drawMenuHeader(int item, const Settings &saved) {
   lcdFill(170, 0, LCD_W - 170, 24, 0, 0, 0);
   int pages, num = pageNumber(item, pages);
@@ -133,7 +133,9 @@ static void drawMenuHeader(int item, const Settings &saved) {
   snprintf(s, sizeof(s), "%s%d/%d", settingsChanged(saved) ? "unsaved  " : "", num, pages);
   lcdText(LCD_W - 6 * (int)strlen(s) - 4, 8, s, 1, settingsChanged(saved) ? C_ACC : C_DIM, C_BG);
   lcdFillC(0, 26, LCD_W, 24, C_HDZ);
-  lcdText(8, 30, itemPage(item), 2, RGB{ 255, 255, 255 }, C_HDZ);
+  char title[40];
+  snprintf(title, sizeof(title), "%s Page", itemPage(item));   // e.g. "Help Page"
+  lcdText(8, 30, title, 2, RGB{ 255, 255, 255 }, C_HDZ);
 }
 
 static void drawMenuRow(int item, int row, bool selected, bool editing) {
@@ -270,7 +272,7 @@ static void drawHelpPage() {
 
 static void drawMenuPage(int item, bool editing, const Settings &saved) {
   lcdFill(0, 0, LCD_W, LCD_H, 0, 0, 0);
-  lcdText(4, 4, "Configuration", 2, C_ACC, C_BG);
+  lcdText(4, 4, "Configuration", 2, C_RED, C_BG);     // red title
   drawMenuHeader(item, saved);
   if (isHelp(item)) { drawHelpPage(); drawMenuFooter(item, false); return; }
   int first, count;
@@ -293,7 +295,7 @@ static void showMessageAndRestart(const char *line1) {
 void runConfigMenu() {
   if (digitalRead(PIN_KEY_L) == LOW || digitalRead(PIN_KEY_R) == LOW || digitalRead(PIN_BTN_ENTER) == LOW) {
     lcdFill(0, 0, LCD_W, LCD_H, 0, 0, 0);    // opened by holding keys: wait for release
-    drawCentered(140, "Configuration", 3, C_ACC);
+    drawCentered(140, "Configuration", 3, C_RED);
     drawCentered(180, "Release the buttons", 2, C_TEXT);
     waitAllReleased();
   }

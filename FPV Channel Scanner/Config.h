@@ -1,6 +1,6 @@
 /*
  * FPV Channel Scanner - Config.h
- * Revision: 88
+ * Revision: 93
  *
  * Hardware pins, tuning constants, shared types, frequency table, colors
  * and the undocumented ESP32-C5 radio access used by the scanner.
@@ -10,7 +10,7 @@
 
 // Firmware revision shown on the Save / Discard page. Keep it equal to the
 // "Revision:" line in the file headers.
-#define FW_REVISION 88
+#define FW_REVISION 93
 
 #include <Arduino.h>
 #include <Wire.h>
@@ -64,6 +64,8 @@ struct Settings {
   int rssiOnly;      // measure with libphy signal RSSI instead of the noise-floor estimator
   int mode11p;       // libphy 802.11p mode (reported to help 5750-5990 MHz)
   int maxMhz;        // frequencies above this aren't measured (MAX_MHZ_OFF = no limit)
+  int tuneMode;      // TUNE_DIRECT, TUNE_WIFI or TUNE_WIFI_CH (how the receiver is tuned)
+  int rxFilterMhz;   // analog RX filter width, RXF_MIN..RXF_AUTO-1 MHz, or RXF_AUTO = as calibrated
 };
 
 // One line in the Configuration menu (Settings.cpp)
@@ -143,6 +145,23 @@ struct ButtonState {
 #define SIG_READS         5       // "RSSI only": signal RSSI reads per sample (median: drops a single spike or dip)
 #define SIG_READ_GAP_US   250     // ...this far apart
 #define MAX_MHZ_OFF       6000    // "Max MHz" at this value = no limit (shown as Off)
+// "Tuning" setting. Direct: phy_set_chanfreq(MHz). Wi-Fi: libphy
+// phy_change_channel(MHz) with the Wi-Fi driver parked on WIFI_TUNE_CH
+// (ESPsoup measured this path receiving up to 5990 MHz, where the direct
+// path lost up to ~20 dB above ~5745 MHz on some boards). Wi-Fi+chan also
+// calls esp_wifi_set_channel(WIFI_TUNE_CH) before every retune, as ESPsoup does.
+#define TUNE_DIRECT       0
+#define TUNE_WIFI         1
+#define TUNE_WIFI_CH      2
+#define WIFI_TUNE_CH      140     // 5700 MHz, a 5 GHz channel near the FPV band
+// "RX filter" setting: analog channel filter width on the C5 (BBTOP block
+// 0x67, I2C host 1, registers 6 and 7, low 6 bits = capacitor code; widths
+// from ESP-SDR / ESPsoup noise measurements in PHY channel mode 0).
+#define RXF_MIN           11      // MHz
+#define RXF_AUTO          24      // setting value meaning "leave as calibrated" (shown as Auto)
+#define RXF_BLOCK         0x67
+#define RXF_HOST          1
+#define RXF_REG           6
 #define NODATA_ON_FRAC    0.6f    // a channel becomes "no data" above this share of held readings...
 #define NODATA_OFF_FRAC   0.3f    // ...and has data again below this one
 #define HELD_MHZ_LO       5300    // stalled readings: last good value kept per MHz,
@@ -196,6 +215,11 @@ extern "C" int phy_set_chanfreq(uint32_t chan_or_mhz, uint8_t bw40);
 extern "C" void phy_check_sigrssi_en(int enable) __attribute__((weak));
 extern "C" int  phy_get_sigrssi(void) __attribute__((weak));
 extern "C" void phy_11p_set(int enable, int mode) __attribute__((weak));
+// "Tuning: Wi-Fi" and "RX filter" (libphy; call signatures from ESPsoup /
+// ESP-SDR). Weak as well: if missing, the setting falls back and says so.
+extern "C" void     phy_change_channel(int mhz, int a, int b, int c) __attribute__((weak));
+extern "C" unsigned phy_chip_i2c_readReg(unsigned block, unsigned host, unsigned reg) __attribute__((weak));
+extern "C" void     phy_i2c_writeReg(unsigned block, unsigned host, unsigned reg, unsigned data) __attribute__((weak));
 
 // Baseband noise-floor estimator (from libphy check_noise_floor()).
 #define BB_NF_CTRL   (*(volatile uint32_t *)0x600A7018)

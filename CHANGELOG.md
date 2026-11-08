@@ -2,6 +2,46 @@
 
 Revision numbers match the `Revision:` line in the source headers.
 
+## Revision 93
+- Config page titles on the blue bar end in "Page" ("Help Page", "Radio
+  Page", ..., "Save / Discard Page").
+
+## Revision 92
+- Configuration pages regrouped by job instead of by screen (10 pages ->
+  8): Help, Radio (RSSI only, Tuning, RX filter, Max MHz, Meas timeout,
+  802.11p), Scanning (samples/channel, learn sweeps, spectrum step and
+  samples), Channel Selection (busy level, min history, L Band Limit, IMD
+  spacing, IMD L band, IMD refresh), HDZero, Display (span, gamma, red
+  spread, peak decay, waterfall log, move fade, backlight), Controls
+  (button and splash timings, pop-up, scan dots), Save / Discard.
+- Labels "Spectrum step", "Spectrum samples", "IMD min spacing", "IMD use
+  L band"; help lines say which screen a setting affects. Flash keys are
+  unchanged, so saved settings carry over.
+- "Configuration" title (menu and the release-the-buttons screen) is red.
+
+## Revision 91
+- Defaults: Tuning = Wi-Fi, RX filter = 16 MHz (were Direct and Auto).
+
+## Revision 90
+- "Busy level" default 6 dB (was 3): with RSSI only's 1 dB steps, quiet
+  channels wobbled past 3 dB.
+- The outline on the highlighted grid box (Activity peak, Noise quietest)
+  is amber, the same colour as the footer text naming it (was white).
+
+## Revision 89
+- New "Tuning" setting (General page; Direct by default): Direct =
+  phy_set_chanfreq(MHz) as before; Wi-Fi = Wi-Fi driver on channel 140 and
+  libphy phy_change_channel(MHz, 1, 0, 0) per retune; Wi-Fi+chan also
+  calls esp_wifi_set_channel(140) before each retune. ESPsoup measured the
+  Wi-Fi path receiving up to 5990 MHz where the direct path lost up to
+  ~20 dB above ~5745 MHz. Falls back to Direct if libphy lacks the call.
+- New "RX filter" setting (General page; Auto by default, or 11-23 MHz):
+  forces the analog filter capacitor code (BBTOP 0x67 host 1, registers
+  6/7, low 6 bits) after every retune; widths from ESP-SDR / ESPsoup
+  measurements. Skipped (with a log line) if libphy lacks the I2C calls.
+- Boot log reports the tuning path and RX filter (calibrated register
+  values and the code used); the timing test uses the selected path.
+
 ## Revision 88
 - Fix: KEY_L from IMD-Free with too little noise history showed the
   "Wait NNs" pop-up, and when it went the IMD rows under it stayed black

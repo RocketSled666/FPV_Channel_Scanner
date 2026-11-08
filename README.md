@@ -90,11 +90,11 @@ pop-up shows and the page stays put.
   L E R A B F are a row above the graph, as wide as it (selected band in green).
 - **FPV Channel Noise**: same layout. Every channel keeps its own long-term
   statistics from start-up (or the last reset): average dB above the floor,
-  % of time busy (3 dB or more above the floor) and peak. Nothing fades, so
+  % of time busy (6 dB or more above the floor by default, "Busy level") and peak. Nothing fades, so
   the longer it runs, the more clearly quiet channels stand out. Boxes are
   shaded from the quietest channel (black) to the busiest (bright red), and
   numbered by rank above the frequency: 1 = quietest, 48 = busiest. The
-  quietest is outlined in white and named in the footer with its average and
+  quietest is outlined in amber and named in the footer with its average and
   busy %, e.g. "L5 5510 0.3 dB 2%". The footer also shows how much history
   has been collected. The serial dump lists all three statistics per channel.
 - **Quietest Channels**: the 16 quietest channels from the Channel Noise
@@ -128,19 +128,18 @@ the Activity grid follows. You can also open the menu at any time by holding
 KEY_L and KEY_R together for 5 seconds on any page.
 
 The menu opens on a Help page that lists what each button does on each
-screen. After it come one page per screen, titled like that screen on a blue
-bar, then a Save / Discard page:
+screen. After it come the settings, grouped by job (radio, scanning,
+channel selection, HDZero, display, controls), each page titled on a blue
+bar ("Radio Page", "Display Page", ...), then a Save / Discard page. The "Configuration" title is red:
 
 | Page | Settings |
 |---|---|
-| FPV Channel Activity | Span (dB), learn sweeps, samples per channel, and for all pages: measurement timeout (ms), RSSI only, 802.11p mode |
-| Spectrum | Step (MHz), samples per point, peak decay, waterfall log curve (0 = linear) |
-| FPV Channel Noise | Busy level (dB), shading gamma, full-red spread (dB) |
-| Quietest Channels | Minimum history before the list opens (s); L Band Limit (1-8): most L-band channels in the Quietest lists and in each IMD-free set (8 = no limit) |
-| Quietest for HDZero | HDZero features, low band L1-L8, E1 and F1 |
-| IMD-Free Channels | Min spacing (MHz), use L band |
-| User Interface | Long press, Configuration hold, splash time, splash combo, pop-up time, scanning-dot step (ms); IMD refresh (s); moved-channel fade (ms, 0 = off) |
-| General | Max MHz (Off, or 5800-5995: channels and spectrum points above it are not measured), backlight (%) |
+| Radio | RSSI only, Tuning (Direct, Wi-Fi, Wi-Fi+chan), RX filter (Auto, or 11-23 MHz), Max MHz (Off, or 5800-5995: channels and spectrum points above it are not measured), measurement timeout (ms), 802.11p mode |
+| Scanning | Samples per channel (grids), learn sweeps, spectrum step (MHz), spectrum samples per point |
+| Channel Selection | Busy level (dB); minimum history before Quietest opens (s); L Band Limit (1-8): most L-band channels in the Quietest lists and in each IMD-free set (8 = no limit); IMD min spacing (MHz), IMD use L band, IMD refresh (s) |
+| HDZero | HDZero features, low band L1-L8, E1 and F1 |
+| Display | Span (dB), shading gamma, full-red spread (dB), peak decay, waterfall log curve (0 = linear), moved-channel fade (ms, 0 = off), backlight (%) |
+| Controls | Long press, Configuration hold, splash time, splash combo, pop-up time, scanning-dot step (ms) |
 
 - **KEY_L / KEY_R**: move up / down the list (past the end of a page goes to
   the next or previous page).
@@ -208,10 +207,28 @@ bar, then a Save / Discard page:
 - Some boards read junk at the top of the band: one test board showed a
   steady -30 to -40 dBm block from about 5925 MHz up that a second board
   beside it didn't see (beyond the C5's documented 5885 MHz). On such a
-  board set "Max MHz" (General page), e.g. 5915: channels above it show
+  board set "Max MHz" (Radio page), e.g. 5915: channels above it show
   "--" and are left out of the Noise ranking, Quietest and IMD-free sets,
   and the spectrum greys out everything above it. They aren't measured, so
   sweeps get a little faster too.
+- "Tuning" (Radio page, default Wi-Fi) picks how the
+  receiver is tuned. Direct is libphy phy_set_chanfreq(MHz), as before.
+  Wi-Fi parks the Wi-Fi driver on channel 140 and tunes with libphy
+  phy_change_channel(MHz, 1, 0, 0); Wi-Fi+chan also re-sets channel 140
+  before every retune. ESPsoup (an ESP32-C5 SDR firmware) measured that
+  path receiving a test tone at every point up to 5990 MHz, while its
+  direct path lost 1.5-4 dB on one board and about 20 dB on another above
+  about 5745 MHz and was nearly deaf at 5900 MHz. Compare the boards with
+  each setting (same VTX, same spot); the boot timing test shows what it
+  costs per retune.
+- "RX filter" (Radio page, default 16 MHz) sets the analog channel filter
+  width: Auto leaves it as calibrated, 11-23 MHz forces the filter
+  capacitor code (BBTOP block 0x67, registers 6/7) after every retune.
+  Narrower separates neighbouring channels better and lowers the floor,
+  but cuts some of a wide signal (analog video is about 15-20 MHz wide).
+  Widths are approximate (ESP-SDR / ESPsoup noise measurements, PHY
+  channel mode 0, which Direct tuning uses); with Wi-Fi tuning they may
+  differ. The boot log shows the calibrated values and the code used.
 - The spectrum tunes in 4 MHz steps (2-6 MHz around channels), off the normal
   5 MHz Wi-Fi grid. If the synthesizer can't land on those exactly, the trace
   will look stepped; set `SPEC_STEP_MHZ` to 5.
@@ -257,23 +274,19 @@ the Configuration menu pages.
 <td align="center"><img src="docs/screenshots/12%20Configuration%20-%20Help.png" width="320" alt="Configuration: Help (opens first)"><br>Configuration: Help (opens first)</td>
 </tr>
 <tr>
-<td align="center"><img src="docs/screenshots/13%20Configuration%20-%20FPV%20Channel%20Activity.png" width="320" alt="Configuration: FPV Channel Activity"><br>Configuration: FPV Channel Activity</td>
-<td align="center"><img src="docs/screenshots/14%20Configuration%20-%20Spectrum.png" width="320" alt="Configuration: Spectrum"><br>Configuration: Spectrum</td>
+<td align="center"><img src="docs/screenshots/13%20Configuration%20-%20Radio.png" width="320" alt="Configuration: Radio"><br>Configuration: Radio</td>
+<td align="center"><img src="docs/screenshots/14%20Configuration%20-%20Scanning.png" width="320" alt="Configuration: Scanning"><br>Configuration: Scanning</td>
 </tr>
 <tr>
-<td align="center"><img src="docs/screenshots/15%20Configuration%20-%20FPV%20Channel%20Noise.png" width="320" alt="Configuration: FPV Channel Noise"><br>Configuration: FPV Channel Noise</td>
-<td align="center"><img src="docs/screenshots/16%20Configuration%20-%20Quietest%20Channels.png" width="320" alt="Configuration: Quietest Channels"><br>Configuration: Quietest Channels</td>
+<td align="center"><img src="docs/screenshots/15%20Configuration%20-%20Channel%20Selection.png" width="320" alt="Configuration: Channel Selection"><br>Configuration: Channel Selection</td>
+<td align="center"><img src="docs/screenshots/16%20Configuration%20-%20HDZero.png" width="320" alt="Configuration: HDZero"><br>Configuration: HDZero</td>
 </tr>
 <tr>
-<td align="center"><img src="docs/screenshots/17%20Configuration%20-%20Quietest%20for%20HDZero.png" width="320" alt="Configuration: Quietest for HDZero"><br>Configuration: Quietest for HDZero</td>
-<td align="center"><img src="docs/screenshots/18%20Configuration%20-%20IMD-Free%20Channels.png" width="320" alt="Configuration: IMD-Free Channels"><br>Configuration: IMD-Free Channels</td>
+<td align="center"><img src="docs/screenshots/17%20Configuration%20-%20Display.png" width="320" alt="Configuration: Display"><br>Configuration: Display</td>
+<td align="center"><img src="docs/screenshots/18%20Configuration%20-%20Controls.png" width="320" alt="Configuration: Controls"><br>Configuration: Controls</td>
 </tr>
 <tr>
-<td align="center"><img src="docs/screenshots/19%20Configuration%20-%20User%20Interface.png" width="320" alt="Configuration: User Interface"><br>Configuration: User Interface</td>
-<td align="center"><img src="docs/screenshots/20%20Configuration%20-%20General.png" width="320" alt="Configuration: General"><br>Configuration: General</td>
-</tr>
-<tr>
-<td align="center"><img src="docs/screenshots/21%20Configuration%20-%20Save%20-%20Discard.png" width="320" alt="Configuration: Save / Discard"><br>Configuration: Save / Discard</td>
-<td align="center"><img src="docs/screenshots/22%20Configuration%20-%20editing%20a%20value.png" width="320" alt="Configuration: editing a value"><br>Configuration: editing a value</td>
+<td align="center"><img src="docs/screenshots/19%20Configuration%20-%20Save%20-%20Discard.png" width="320" alt="Configuration: Save / Discard"><br>Configuration: Save / Discard</td>
+<td align="center"><img src="docs/screenshots/20%20Configuration%20-%20editing%20a%20value.png" width="320" alt="Configuration: editing a value"><br>Configuration: editing a value</td>
 </tr>
 </table>

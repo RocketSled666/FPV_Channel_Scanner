@@ -1,8 +1,10 @@
 /*
  * FPV Channel Scanner - Radio.cpp
- * Revision: 88
+ * Revision: 93
  *
- * 5 GHz measurement: tuning with the internal phy_set_chanfreq(), reading
+ * 5 GHz measurement: tuning (libphy phy_set_chanfreq(), or the Wi-Fi
+ * path phy_change_channel(), "Tuning" setting) plus the analog RX filter
+ * width ("RX filter" setting), reading
  * the baseband noise-floor estimator (or signal RSSI with "RSSI only"),
  * holding the last good value when a reading stalls,
  * radio start-up, the boot timing test and the serial timing report.
@@ -97,6 +99,43 @@ void printRssiStats() {
   sigReads = sigBad = sigSame = sigSamples = 0;
 }
 
+// ---------------------------------------------------------------- tuning
+static int  tuneMode = TUNE_DIRECT;       // as actually used (falls back if libphy lacks a call)
+static int  rxfCode  = -1;                // capacitor code to force after each retune, -1 = Auto
+static unsigned rxfCal[2];                // calibrated register values, for the log
+
+// RX filter width (MHz) -> capacitor code, PHY channel mode 0 (ESP-SDR /
+// ESPsoup measurements, approximate full width). Linear in between.
+static int rxFilterCode(int mhz) {
+  static const uint8_t code[] = {  0,  4,  8, 12, 16, 24, 32, 40, 48, 60 };
+  static const uint8_t wid[]  = { 23, 22, 21, 20, 18, 16, 15, 13, 12, 11 };
+  const int n = sizeof(code);
+  if (mhz >= wid[0]) return code[0];
+  if (mhz <= wid[n - 1]) return code[n - 1];
+  for (int i = 1; i < n; i++)
+    if (mhz >= wid[i]) {
+      int span = wid[i - 1] - wid[i];
+      return code[i - 1] + ((code[i] - code[i - 1]) * (wid[i - 1] - mhz) + span / 2) / span;
+    }
+  return code[n - 1];
+}
+
+// Retune; then force the RX filter code (a retune reloads the calibrated
+// value). Only the low 6 bits of each register are changed.
+static void tuneTo(uint16_t mhz) {
+  if (tuneMode == TUNE_DIRECT) {
+    phy_set_chanfreq(mhz, 0);                 // 20 MHz bandwidth
+  } else {
+    if (tuneMode == TUNE_WIFI_CH) esp_wifi_set_channel(WIFI_TUNE_CH, WIFI_SECOND_CHAN_NONE);
+    phy_change_channel(mhz, 1, 0, 0);
+  }
+  if (rxfCode >= 0)
+    for (unsigned j = 0; j < 2; j++) {
+      unsigned v = phy_chip_i2c_readReg(RXF_BLOCK, RXF_HOST, RXF_REG + j);
+      phy_i2c_writeReg(RXF_BLOCK, RXF_HOST, RXF_REG + j, (v & ~63u) | (unsigned)rxfCode);
+    }
+}
+
 // One measurement with whichever method is on.
 static int16_t measureAny() { return sigOn ? sigMeasureQdb() : measureQdb(); }
 
@@ -106,7 +145,7 @@ static int16_t measureAny() { return sigOn ? sigMeasureQdb() : measureQdb(); }
 // and the last good reading at that frequency is returned (NAN if none yet).
 float readFreqDb(uint16_t mhz, int samples, uint32_t settleUs) {
   uint32_t t0 = micros();
-  phy_set_chanfreq(mhz, 0);           // 20 MHz bandwidth
+  tuneTo(mhz);
   uint32_t t1 = micros();
   delayMicroseconds(settleUs);        // let the synthesizer / AGC settle
   uint32_t t2 = micros();
@@ -160,7 +199,8 @@ void radioInit() {
   esp_err_t e = esp_wifi_set_band_mode(WIFI_BAND_MODE_5G_ONLY);
   if (e != ESP_OK) Serial.printf("set_band_mode: %s\n", esp_err_to_name(e));
   esp_wifi_set_promiscuous(true);                        // keep the receiver running
-  e = esp_wifi_set_channel(149, WIFI_SECOND_CHAN_NONE);  // brings up 5 GHz cal
+  e = esp_wifi_set_channel(cfg.tuneMode == TUNE_DIRECT ? 149 : WIFI_TUNE_CH,
+                           WIFI_SECOND_CHAN_NONE);       // brings up 5 GHz cal
   if (e != ESP_OK) Serial.printf("set_channel: %s\n", esp_err_to_name(e));
   delay(50);
   // Optional libphy modes (settings). Weak symbols: missing = not available.
@@ -168,6 +208,22 @@ void radioInit() {
     if (phy_11p_set) { phy_11p_set(1, 0); Serial.println("802.11p mode: on"); }
     else Serial.println("802.11p mode: not in this core's libphy, ignored");
   }
+  // Tuning path and RX filter (settings). Reported so a log shows what ran.
+  tuneMode = cfg.tuneMode;
+  if (tuneMode != TUNE_DIRECT && !phy_change_channel) {
+    tuneMode = TUNE_DIRECT;
+    Serial.println("Tuning: phy_change_channel not in this core's libphy, using Direct");
+  } else Serial.printf("Tuning: %s\n", tuneMode == TUNE_WIFI ? "Wi-Fi (phy_change_channel, driver on ch 140)"
+                                     : tuneMode == TUNE_WIFI_CH ? "Wi-Fi+chan (set ch 140 before every retune)"
+                                     : "Direct (phy_set_chanfreq)");
+  if (phy_chip_i2c_readReg && phy_i2c_writeReg) {
+    tuneTo(5800);                                       // read the calibrated values
+    for (unsigned j = 0; j < 2; j++) rxfCal[j] = phy_chip_i2c_readReg(RXF_BLOCK, RXF_HOST, RXF_REG + j);
+    if (cfg.rxFilterMhz < RXF_AUTO) rxfCode = rxFilterCode(cfg.rxFilterMhz);
+    if (rxfCode >= 0) Serial.printf("RX filter: %d MHz (code %d; calibrated 0x%02x/0x%02x)\n",
+                                    cfg.rxFilterMhz, rxfCode, rxfCal[0], rxfCal[1]);
+    else Serial.printf("RX filter: Auto (calibrated 0x%02x/0x%02x)\n", rxfCal[0], rxfCal[1]);
+  } else if (cfg.rxFilterMhz < RXF_AUTO) Serial.println("RX filter: libphy I2C calls missing, left on Auto");
   if (cfg.rssiOnly) {
     if (phy_check_sigrssi_en && phy_get_sigrssi) {
       phy_check_sigrssi_en(1); sigOn = true;
@@ -183,7 +239,7 @@ void bootTimingTest() {
   Serial.println("Timing test (us):  freq  retune  measure min/avg/max");
   for (size_t k = 0; k < sizeof(testMhz) / sizeof(testMhz[0]); k++) {
     uint32_t t0 = micros();
-    phy_set_chanfreq(testMhz[k], 0);
+    tuneTo(testMhz[k]);
     uint32_t tune = micros() - t0;
     measureAny();                                   // discard after retune
     uint32_t mn = 0xFFFFFFFF, mx = 0, sum = 0;
@@ -197,7 +253,7 @@ void bootTimingTest() {
                   (unsigned long)mn, (unsigned long)(sum / 10), (unsigned long)mx);
   }
   uint32_t t0 = micros();
-  phy_set_chanfreq(5945, 0);                        // retune to the same frequency
+  tuneTo(5945);                                     // retune to the same frequency
   Serial.printf("  same-frequency retune: %lu us, timeouts=%lu\n",
                 (unsigned long)(micros() - t0), (unsigned long)g_nfTimeouts);
 }
