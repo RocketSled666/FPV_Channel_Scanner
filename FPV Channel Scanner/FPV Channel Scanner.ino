@@ -225,15 +225,12 @@ void setup() {
   delay(200);
   Serial.println("\nFPV Channel Scanner (ESP32-C5)");
 
-  pinMode(PIN_LCD_CS, OUTPUT); digitalWrite(PIN_LCD_CS, HIGH);
   pinMode(PIN_SD_CS,  OUTPUT); digitalWrite(PIN_SD_CS,  HIGH);
-  pinMode(PIN_LCD_DC, OUTPUT);
   pinMode(PIN_KEY_L,     INPUT_PULLUP);
   pinMode(PIN_KEY_R,     INPUT_PULLUP);
   pinMode(PIN_BTN_ENTER, INPUT_PULLUP);
 
   Wire.begin(PIN_I2C_SDA, PIN_I2C_SCL, 400000);
-  SPI.begin(PIN_LCD_SCK, PIN_LCD_MISO, PIN_LCD_MOSI, -1);
 
   lcdInit();
   showSplash();                               // picture + "Press forward+backward..." hint

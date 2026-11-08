@@ -13,7 +13,6 @@
 #define FW_REVISION 87
 
 #include <Arduino.h>
-#include <SPI.h>
 #include <Wire.h>
 #include <WiFi.h>
 #include "esp_wifi.h"
