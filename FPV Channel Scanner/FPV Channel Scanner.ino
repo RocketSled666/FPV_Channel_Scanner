@@ -1,6 +1,6 @@
 /*
  * FPV Channel Scanner
- * Revision: 87
+ * Revision: 88
  * Board : Waveshare ESP32-C5-LCD-2.73 (ESP32-C5, ILI9488 320x320 SPI LCD)
  * Core  : Arduino-ESP32 3.3.x  (Tools > Board > "ESP32C5 Dev Module")
  *
@@ -208,6 +208,10 @@
  *       after 5 s); waterfall stays on the span
  *   87  "Max MHz" setting: frequencies above it aren't measured (grids "--",
  *       spectrum greyed), for boards that read junk at the top of the band
+ *   88  Fixes: IMD-Free table repainted after the Wait pop-up; floor clamp
+ *       uses learned floors only; no overflow with no live channel; LCD
+ *       driven through ESP-IDF's esp_lcd panel IO with a software reset,
+ *       so the screen comes back after a flash or USB reset
  */
 
 #include "Scanner.h"

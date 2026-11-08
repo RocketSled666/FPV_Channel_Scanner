@@ -1,6 +1,6 @@
 /*
  * FPV Channel Scanner - Page Spectrum.cpp
- * Revision: 87
+ * Revision: 88
  *
  * Spectrum page: continuous sweep across one band in SPEC_STEP_MHZ
  * steps, with channel markers, values and band buttons. The sweep point
