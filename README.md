@@ -331,8 +331,9 @@ MIT - see [LICENSE](LICENSE).
 
 ## Screenshots
 Simulated screenshots (the firmware's own drawing code run on a PC with a
-simulated radio): the splash, the scanner pages in Right-button order, then
-the Configuration menu pages.
+simulated radio): every page, with each video system where it changes the
+page: the splash, the scanner pages in Right-button order, then the
+Configuration menu pages.
 
 <table>
 <tr>
@@ -340,46 +341,82 @@ the Configuration menu pages.
 <td align="center"><img src="docs/screenshots/02%20FPV%20Channel%20Activity.png" width="320" alt="FPV Channel Activity"><br>FPV Channel Activity</td>
 </tr>
 <tr>
-<td align="center"><img src="docs/screenshots/03%20FPV%20Channel%20Activity%20%28HDZero%20mode%29.png" width="320" alt="FPV Channel Activity, HDZero mode"><br>FPV Channel Activity, HDZero mode</td>
-<td align="center"><img src="docs/screenshots/04%20Band%20Scan.png" width="320" alt="Band Scan (busy channels red, labelled)"><br>Band Scan (busy channels red, labelled)</td>
+<td align="center"><img src="docs/screenshots/03%20FPV%20Channel%20Activity%20%28HDZero%29.png" width="320" alt="FPV Channel Activity, HDZero"><br>FPV Channel Activity, HDZero</td>
+<td align="center"><img src="docs/screenshots/04%20FPV%20Channel%20Activity%20%28DJI%29.png" width="320" alt="FPV Channel Activity, DJI"><br>FPV Channel Activity, DJI</td>
 </tr>
 <tr>
-<td align="center"><img src="docs/screenshots/05%20Band%20Scan%20%28Hold%29.png" width="320" alt="Band Scan, held (ENTER)"><br>Band Scan, held (ENTER)</td>
-<td align="center"><img src="docs/screenshots/06%20Spectrum%20%28Raceband%29.png" width="320" alt="Spectrum (Raceband) with waterfall"><br>Spectrum (Raceband) with waterfall</td>
+<td align="center"><img src="docs/screenshots/05%20FPV%20Channel%20Activity%20%28Walksnail%29.png" width="320" alt="FPV Channel Activity, Walksnail"><br>FPV Channel Activity, Walksnail</td>
+<td align="center"><img src="docs/screenshots/06%20FPV%20Channel%20Activity%20%28OpenIPC%29.png" width="320" alt="FPV Channel Activity, OpenIPC"><br>FPV Channel Activity, OpenIPC</td>
 </tr>
 <tr>
-<td align="center"><img src="docs/screenshots/07%20FPV%20Channel%20Noise.png" width="320" alt="FPV Channel Noise"><br>FPV Channel Noise</td>
-<td align="center"><img src="docs/screenshots/08%20FPV%20Channel%20Noise%20%28HDZero%20mode%29.png" width="320" alt="FPV Channel Noise, HDZero mode"><br>FPV Channel Noise, HDZero mode</td>
+<td align="center"><img src="docs/screenshots/07%20Band%20Scan.png" width="320" alt="Band Scan (busy channels red, labelled)"><br>Band Scan (busy channels red, labelled)</td>
+<td align="center"><img src="docs/screenshots/08%20Band%20Scan%20%28Hold%29.png" width="320" alt="Band Scan, held (ENTER)"><br>Band Scan, held (ENTER)</td>
 </tr>
 <tr>
-<td align="center"><img src="docs/screenshots/09%20FPV%20Channel%20Noise%20with%20Wait%20popup.png" width="320" alt="Wait pop-up (Quietest not ready)"><br>Wait pop-up (Quietest not ready)</td>
-<td align="center"><img src="docs/screenshots/10%20Quietest%20Channels.png" width="320" alt="Quietest Channels"><br>Quietest Channels</td>
+<td align="center"><img src="docs/screenshots/09%20Spectrum%20%28Raceband%29.png" width="320" alt="Spectrum (Raceband) with waterfall"><br>Spectrum (Raceband) with waterfall</td>
+<td align="center"><img src="docs/screenshots/10%20Spectrum%20%28HDZero%29.png" width="320" alt="Spectrum, HDZero (bands it can't use darker)"><br>Spectrum, HDZero (bands it can't use darker)</td>
 </tr>
 <tr>
-<td align="center"><img src="docs/screenshots/11%20Quietest%20for%20HDZero.png" width="320" alt="Quietest for HDZero"><br>Quietest for HDZero</td>
-<td align="center"><img src="docs/screenshots/12%20IMD-Free%20Channels.png" width="320" alt="IMD-Free Channels"><br>IMD-Free Channels</td>
+<td align="center"><img src="docs/screenshots/11%20FPV%20Channel%20Noise.png" width="320" alt="FPV Channel Noise"><br>FPV Channel Noise</td>
+<td align="center"><img src="docs/screenshots/12%20FPV%20Channel%20Noise%20%28HDZero%29.png" width="320" alt="FPV Channel Noise, HDZero"><br>FPV Channel Noise, HDZero</td>
 </tr>
 <tr>
-<td align="center"><img src="docs/screenshots/13%20IMD-Free%20Channels%20%28Hold%2C%20Best%20IMD%20first%29.png" width="320" alt="IMD-Free Channels, held, Best IMD first (noisier channels shaded red)"><br>IMD-Free Channels, held, Best IMD first (noisier channels shaded red)</td>
-<td align="center"><img src="docs/screenshots/14%20IMD-Free%20Channels%20%28HDZero%20mode%29.png" width="320" alt="IMD-Free Channels, HDZero mode"><br>IMD-Free Channels, HDZero mode</td>
+<td align="center"><img src="docs/screenshots/13%20FPV%20Channel%20Noise%20%28DJI%29.png" width="320" alt="FPV Channel Noise, DJI"><br>FPV Channel Noise, DJI</td>
+<td align="center"><img src="docs/screenshots/14%20FPV%20Channel%20Noise%20%28Walksnail%29.png" width="320" alt="FPV Channel Noise, Walksnail"><br>FPV Channel Noise, Walksnail</td>
 </tr>
 <tr>
-<td align="center"><img src="docs/screenshots/15%20Configuration%20-%20Help.png" width="320" alt="Configuration: Help (opens first)"><br>Configuration: Help (opens first)</td>
-<td align="center"><img src="docs/screenshots/16%20Configuration%20-%20Video%20System.png" width="320" alt="Configuration: Video System"><br>Configuration: Video System</td>
+<td align="center"><img src="docs/screenshots/15%20FPV%20Channel%20Noise%20%28OpenIPC%29.png" width="320" alt="FPV Channel Noise, OpenIPC"><br>FPV Channel Noise, OpenIPC</td>
+<td align="center"><img src="docs/screenshots/16%20FPV%20Channel%20Noise%20with%20Wait%20popup.png" width="320" alt="Wait pop-up (Quietest not ready)"><br>Wait pop-up (Quietest not ready)</td>
 </tr>
 <tr>
-<td align="center"><img src="docs/screenshots/17%20Configuration%20-%20Radio.png" width="320" alt="Configuration: Radio"><br>Configuration: Radio</td>
-<td align="center"><img src="docs/screenshots/18%20Configuration%20-%20Scanning.png" width="320" alt="Configuration: Scanning"><br>Configuration: Scanning</td>
+<td align="center"><img src="docs/screenshots/17%20Quietest%20Channels.png" width="320" alt="Quietest Channels"><br>Quietest Channels</td>
+<td align="center"><img src="docs/screenshots/18%20Quietest%20for%20HDZero.png" width="320" alt="Quietest for HDZero"><br>Quietest for HDZero</td>
 </tr>
 <tr>
-<td align="center"><img src="docs/screenshots/19%20Configuration%20-%20Channel%20Selection.png" width="320" alt="Configuration: Channel Selection"><br>Configuration: Channel Selection</td>
-<td align="center"><img src="docs/screenshots/20%20Configuration%20-%20Display.png" width="320" alt="Configuration: Display"><br>Configuration: Display</td>
+<td align="center"><img src="docs/screenshots/19%20Quietest%20for%20DJI.png" width="320" alt="Quietest for DJI"><br>Quietest for DJI</td>
+<td align="center"><img src="docs/screenshots/20%20Quietest%20for%20Walksnail.png" width="320" alt="Quietest for Walksnail"><br>Quietest for Walksnail</td>
 </tr>
 <tr>
-<td align="center"><img src="docs/screenshots/21%20Configuration%20-%20Controls.png" width="320" alt="Configuration: Controls"><br>Configuration: Controls</td>
-<td align="center"><img src="docs/screenshots/22%20Configuration%20-%20Save%20-%20Discard.png" width="320" alt="Configuration: Save / Discard"><br>Configuration: Save / Discard</td>
+<td align="center"><img src="docs/screenshots/21%20Quietest%20for%20OpenIPC.png" width="320" alt="Quietest for OpenIPC"><br>Quietest for OpenIPC</td>
+<td align="center"><img src="docs/screenshots/22%20IMD-Free%20Channels.png" width="320" alt="IMD-Free Channels"><br>IMD-Free Channels</td>
 </tr>
 <tr>
-<td align="center"><img src="docs/screenshots/23%20Configuration%20-%20editing%20a%20value.png" width="320" alt="Configuration: editing a value"><br>Configuration: editing a value</td>
+<td align="center"><img src="docs/screenshots/23%20IMD-Free%20Channels%20%28Hold%2C%20Best%20IMD%20first%29.png" width="320" alt="IMD-Free Channels, held, Best IMD first (noisier channels shaded red)"><br>IMD-Free Channels, held, Best IMD first (noisier channels shaded red)</td>
+<td align="center"><img src="docs/screenshots/24%20IMD-Free%20Channels%20%28HDZero%29.png" width="320" alt="IMD-Free Channels, HDZero"><br>IMD-Free Channels, HDZero</td>
+</tr>
+<tr>
+<td align="center"><img src="docs/screenshots/25%20IMD-Free%20Channels%20%28DJI%29.png" width="320" alt="IMD-Free Channels, DJI"><br>IMD-Free Channels, DJI</td>
+<td align="center"><img src="docs/screenshots/26%20IMD-Free%20Channels%20%28Walksnail%29.png" width="320" alt="IMD-Free Channels, Walksnail"><br>IMD-Free Channels, Walksnail</td>
+</tr>
+<tr>
+<td align="center"><img src="docs/screenshots/27%20IMD-Free%20Channels%20%28OpenIPC%29.png" width="320" alt="IMD-Free Channels, OpenIPC"><br>IMD-Free Channels, OpenIPC</td>
+<td align="center"><img src="docs/screenshots/28%20Configuration%20-%20Help.png" width="320" alt="Configuration: Help (opens first)"><br>Configuration: Help (opens first)</td>
+</tr>
+<tr>
+<td align="center"><img src="docs/screenshots/29%20Configuration%20-%20Video%20System.png" width="320" alt="Configuration: Video System (All bands/chans)"><br>Configuration: Video System (All bands/chans)</td>
+<td align="center"><img src="docs/screenshots/30%20Configuration%20-%20Video%20System%20%28HDZero%29.png" width="320" alt="Configuration: Video System, HDZero"><br>Configuration: Video System, HDZero</td>
+</tr>
+<tr>
+<td align="center"><img src="docs/screenshots/31%20Configuration%20-%20Video%20System%20%28DJI%29.png" width="320" alt="Configuration: Video System, DJI"><br>Configuration: Video System, DJI</td>
+<td align="center"><img src="docs/screenshots/32%20Configuration%20-%20Video%20System%20%28DJI%20O4%20race%29.png" width="320" alt="Configuration: Video System, DJI O4 race"><br>Configuration: Video System, DJI O4 race</td>
+</tr>
+<tr>
+<td align="center"><img src="docs/screenshots/33%20Configuration%20-%20Video%20System%20%28Walksnail%29.png" width="320" alt="Configuration: Video System, Walksnail"><br>Configuration: Video System, Walksnail</td>
+<td align="center"><img src="docs/screenshots/34%20Configuration%20-%20Video%20System%20%28OpenIPC%29.png" width="320" alt="Configuration: Video System, OpenIPC"><br>Configuration: Video System, OpenIPC</td>
+</tr>
+<tr>
+<td align="center"><img src="docs/screenshots/35%20Configuration%20-%20Radio.png" width="320" alt="Configuration: Radio"><br>Configuration: Radio</td>
+<td align="center"><img src="docs/screenshots/36%20Configuration%20-%20Scanning.png" width="320" alt="Configuration: Scanning"><br>Configuration: Scanning</td>
+</tr>
+<tr>
+<td align="center"><img src="docs/screenshots/37%20Configuration%20-%20Channel%20Selection.png" width="320" alt="Configuration: Channel Selection"><br>Configuration: Channel Selection</td>
+<td align="center"><img src="docs/screenshots/38%20Configuration%20-%20Display.png" width="320" alt="Configuration: Display"><br>Configuration: Display</td>
+</tr>
+<tr>
+<td align="center"><img src="docs/screenshots/39%20Configuration%20-%20Controls.png" width="320" alt="Configuration: Controls"><br>Configuration: Controls</td>
+<td align="center"><img src="docs/screenshots/40%20Configuration%20-%20Save%20-%20Discard.png" width="320" alt="Configuration: Save / Discard"><br>Configuration: Save / Discard</td>
+</tr>
+<tr>
+<td align="center"><img src="docs/screenshots/41%20Configuration%20-%20editing%20a%20value.png" width="320" alt="Configuration: editing a value"><br>Configuration: editing a value</td>
 </tr>
 </table>
