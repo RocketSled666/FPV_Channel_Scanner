@@ -226,6 +226,12 @@ bar ("Radio Page", "Display Page", ...), then a Save / Discard page. The "Config
   forgets the changes; **Reset to defaults** loads the defaults (then Save).
 
 ## Buttons
+<p align="center"><img src="docs/images/Button%20Layout.png" width="720" alt="Front view of the board with arrows to the Left (KEY_L), ENTER (BOOT) and Right (KEY_R) buttons"></p>
+
+The three buttons are on the side edges of the board, behind the screen:
+Left (KEY_L) and ENTER (BOOT) on the left edge, Right (KEY_R) on the right
+edge above PWR (power, not used by the scanner). USB-C is on the bottom edge.
+
 - **KEY_R / KEY_L**: next / previous page (order above), when released.
 - **KEY_L + KEY_R held 5 s**: open the Configuration menu from any page.
 - **ENTER (short)** on the grid: cycle the span (25-50 dB in 5 dB steps, default 25). It sets
@@ -275,6 +281,45 @@ bar ("Radio Page", "Display Page", ...), then a Save / Discard page. The "Config
 - The baseband's noise-floor estimator (registers 0x600A7018 / 0x600A7050)
   measures in-band power over the 20 MHz receive bandwidth. It's read raw,
   without the -98...-88 dB clamp Espressif's own test code applies.
+
+## Not all ESP32-C5 boards are the same
+The ESP32-C5 isn't a calibrated receiver, and boards differ, even two of the
+same model bought together. Espressif only documents the C5's 5 GHz range up
+to **5885 MHz**, so R8 (5917), E6 (5905), E7 (5925) and E8 (5945) are outside
+it, and that is where most of the differences show up:
+
+- **Lost sensitivity at the top of the band.** Tuned directly, one board lost
+  1.5-4 dB above about 5745 MHz and another about 20 dB, and was nearly deaf by
+  5900 MHz. Tuning through the Wi-Fi driver (the default) received a test
+  tone at every point up to 5990 MHz on the same boards.
+- **False signals at the top of the band.** One board read a steady -30 to
+  -40 dBm block from about 5925 MHz up that a second board beside it didn't
+  see. It looks like a busy channel that never goes away.
+- **Different noise floors and stalls.** Floors and how often a reading
+  stalls (with "RSSI only" Off) vary from board to board, mostly above
+  5.9 GHz.
+
+**Checking a board:** with every VTX off, re-learn the floor (long press
+ENTER), then watch the Spectrum page for the E and R bands and Band Scan. A
+flat raised block that never moves at the top end is a board problem, not a
+signal. Then power one VTX on R8 or E6 and compare it with the same VTX on R1
+from the same spot: a much weaker reading means the board is losing
+sensitivity up there.
+
+**Settings that help** (Configuration):
+
+| Setting | Page | What to try |
+|---|---|---|
+| Tuning | Radio | Default Wi-Fi. If the top of the band is weak or noisy, compare Wi-Fi, Wi-Fi+chan and Direct with the same VTX in the same spot and keep the best. |
+| Max MHz | Radio | Off by default. Set it just below where the board goes bad (e.g. 5915 drops R8, E7 and E8 but keeps E6). Channels above it aren't measured: they show "--", are left out of the Noise ranking, Quietest and IMD-free sets, and are greyed out on Spectrum and Band Scan. |
+| RX filter | Radio | Default 16 MHz. Narrower (11-14) lowers the floor and separates neighbouring channels; Auto leaves the board's own calibration. |
+| RSSI only | Radio | Default On (signal RSSI, no stalls on the boards tested). Off uses the noise-floor estimator (finer steps, but can stall above 5.9 GHz). |
+| Meas timeout | Radio | Only with RSSI only Off: how long a reading may take before it counts as stalled. |
+| 802.11p mode | Radio | Experimental; reported to help 5750-5990 MHz. Doubles measurement time. |
+| Samples/channel | Scanning | More samples give steadier readings on a noisy board, at the cost of sweep speed. |
+| Learn sweeps | Scanning | More sweeps give a steadier noise floor; always learn with VTXs off. |
+| Busy level | Channel Selection | Raise it if a board's floor is jumpy and channels turn red with nothing on. |
+| Video system | Video System | Picking your system limits every page to the channels it actually uses, which may avoid the top of the band altogether. |
 
 ## Caveats
 - Measurement uses libphy's signal RSSI by default ("RSSI only" On, see
