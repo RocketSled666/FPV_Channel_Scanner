@@ -1,6 +1,6 @@
 /*
  * FPV Channel Scanner - Page Activity.cpp
- * Revision: 101
+ * Revision: 102
  *
  * FPV Channel Activity page (the live grid) and the grid sweep that
  * also feeds the Channel Noise and Quietest Channels pages.
@@ -52,6 +52,10 @@ void gridDrawFooter(int pb, int pc, float aboveDb) {
   }
   drawSpanLabel();
 }
+
+static int      gridRange = 0;          // Activity brightness scale top, dB (span, or auto range)
+static uint32_t gridRangeNeedMs = 0;
+int gridRangeNow() { return gridRange; }
 
 // One full grid sweep + redraw of changed cells.
 // Runs on the GRID and ACTIVITY pages; both share the measurement and floor.
@@ -137,17 +141,18 @@ void gridSweep() {
 
   // Brightness scale: the span, or with "Auto range" On at least the span,
   // growing at once to fit the strongest box (rounded up to 10 dB) and
-  // shrinking one step after SPEC_RANGE_HOLD_MS, as on the Spectrum page.
-  static int gridRange = 0;
-  static uint32_t gridRangeNeedMs = 0;
-  { int need = cfg.span;
+  // shrinking one step after "Hold time" (Auto Range page), as on the Spectrum page.
+  { int before = gridRange;
+    int need = cfg.span;
     if (cfg.specAutoRange && !learning && best > need)
       need = min(SPEC_RANGE_MAX, ((int)ceilf(best / SPEC_RANGE_STEP)) * SPEC_RANGE_STEP);
     uint32_t now = millis();
     if (!cfg.specAutoRange || need >= gridRange) { gridRange = need; gridRangeNeedMs = now; }
-    else if (now - gridRangeNeedMs >= SPEC_RANGE_HOLD_MS) {
-      gridRange = max(need, gridRange - SPEC_RANGE_STEP); gridRangeNeedMs = now;
-    } }
+    else if (now - gridRangeNeedMs >= (uint32_t)cfg.rangeHoldS * 1000) {
+      gridRange = max(need, gridRange - cfg.rangeDropDb); gridRangeNeedMs = now;
+    }
+    if (gridRange != before && mode == MODE_GRID && !learning) drawSpanLabel();   // footer shows it
+  }
 
   for (int b = 0; b < NUM_BANDS; b++)
     for (int c = 0; c < NUM_CH; c++) {

@@ -1,6 +1,6 @@
 /*
  * FPV Channel Scanner
- * Revision: 101
+ * Revision: 102
  * Board : Waveshare ESP32-C5-LCD-2.73 (ESP32-C5, ILI9488 320x320 SPI LCD)
  * Core  : Arduino-ESP32 3.3.x  (Tools > Board > "ESP32C5 Dev Module")
  *
@@ -275,6 +275,16 @@
  *       turn red. Video system tag (HDZ / DJI / WS / IPC) also on Band Scan,
  *       Spectrum and IMD-Free. IMD-Free with no set in any column: ENTER =
  *       Help, a box saying which settings to change (ENTER again closes)
+ *  102  Span 25-50 dB (was 5-60 in Configuration, 15-40 with ENTER), default
+ *       25 (was 15); ENTER on the Activity grid cycles 25-50
+ *       Configuration title bars show "Rev NNN" at the right end
+ *       New Auto Range page (after Display): Auto range, Hold time (1-60 s,
+ *       default 5) and Drop step (5-50 dB, default 10) for how the scale
+ *       comes back down
+ *       Defaults: Span 25 dB with Auto range On (scale grows to fit peaks)
+ *       Span shown bottom right on Activity, Band Scan and Spectrum; with Auto
+ *       range On as "Span auto 70 dB (min 50)" (the current scale and the
+ *       Span setting it never drops below)
  */
 
 #include "Scanner.h"
@@ -377,7 +387,7 @@ void loop() {
   if (evEnterShort) {
     evEnterShort = false;
     if (mode == MODE_GRID) {                // cycle brightness span
-      cfg.span = (cfg.span >= 40) ? 15 : cfg.span + 5;
+      cfg.span = (cfg.span >= 50) ? 25 : cfg.span + 5;   // 25-50 dB
       saveSpan();                           // remembered across power cycles
       gridInvalidate(); gridFooterDirty = true;
     } else if (mode == MODE_ACTIVITY) {     // restart the activity sums

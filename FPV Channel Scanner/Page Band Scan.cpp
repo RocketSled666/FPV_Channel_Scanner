@@ -1,6 +1,6 @@
 /*
  * FPV Channel Scanner - Page Band Scan.cpp
- * Revision: 101
+ * Revision: 102
  *
  * Band Scan page, modelled on the ArduVidRx band scanner: one sweep over
  * the whole 5.3-6.0 GHz band, measuring every FPV channel frequency plus
@@ -142,7 +142,7 @@ static void bsDrawAxis() {
 
 // Same vertical scale as the spectrum: the Span setting (bars above it clip
 // at the top), or with "Auto range" On at least the span, growing at once to
-// fit the highest bar and shrinking one step after SPEC_RANGE_HOLD_MS.
+// fit the highest bar and shrinking one step after "Hold time" (Auto Range page).
 // ---------------------------------------------------------------- waterfall
 // Same look as the Spectrum page's (shared colour ramp and "Waterfall log"
 // curve, scaled by the span): one row per sweep, newest on top, each bar's
@@ -167,6 +167,8 @@ static void wfDrawBs() {
   }
 }
 
+int bsRangeNow() { return bsRange; }
+
 static bool bsUpdateRange(float maxAbove) {
   int need = cfg.span;
   if (cfg.specAutoRange && maxAbove > need) need = min(SPEC_RANGE_MAX, ((int)ceilf(maxAbove / SPEC_RANGE_STEP)) * SPEC_RANGE_STEP);
@@ -174,11 +176,12 @@ static bool bsUpdateRange(float maxAbove) {
   int old = bsRange;
   if (!cfg.specAutoRange) bsRange = need;                // fixed at the span
   else if (need >= bsRange) { bsRange = need; bsRangeNeedMs = now; }
-  else if (now - bsRangeNeedMs >= SPEC_RANGE_HOLD_MS) {
-    bsRange = max(need, bsRange - SPEC_RANGE_STEP); bsRangeNeedMs = now;
+  else if (now - bsRangeNeedMs >= (uint32_t)cfg.rangeHoldS * 1000) {
+    bsRange = max(need, bsRange - cfg.rangeDropDb); bsRangeNeedMs = now;
   }
   if (bsRange == old) return false;
   bsDrawAxis();
+  drawSpanLabel();                                     // footer, bottom right
   return true;
 }
 
@@ -309,6 +312,7 @@ static void bsDrawFooter(int peakPt, float aboveDb) {
   snprintf(s, sizeof(s), "Peak: %s%s%u MHz %d dB", names, names[0] ? " " : "",
            bsMhz[peakPt], (int)lroundf(aboveDb));
   lcdText(4, BS_FOOT_Y + 2, s, 2, C_ACC, C_BG);
+  drawSpanLabel();                                     // bottom right, as on Activity and Spectrum
 }
 
 // True if the frequency is a channel (not a fill-in point): one of the

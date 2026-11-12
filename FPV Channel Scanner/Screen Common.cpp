@@ -1,6 +1,6 @@
 /*
  * FPV Channel Scanner - Screen Common.cpp
- * Revision: 101
+ * Revision: 102
  *
  * Drawing shared by several pages (grid frame, Scanning dots, span /
  * history label, learning progress, title status), the pop-up, and
@@ -57,16 +57,25 @@ void drawScanning(int y) {
   updateScanDots();
 }
 
-// "SPAN nndB" at the bottom right; same screen position on both pages.
+// Bottom right of the footer: the span on the pages that use it (Activity,
+// Band Scan, Spectrum), the noise history time on Noise / Quietest / IMD-Free.
+// With Auto range On: "Span auto 70 dB (min 50)" while the scale is above
+// the span setting, "Span auto 50 dB" at it.
 void drawSpanLabel() {
   char s[64];
   if (mode == MODE_ACTIVITY || quietPage()) {
     // D:HH:MM:SS; fixed width (up to 9 days) so no leftovers when it changes
     unsigned long t = (unsigned long)actTrackedS;
     snprintf(s, sizeof(s), "History %lu:%02lu:%02lu:%02lu", t / 86400, t / 3600 % 24, t / 60 % 60, t % 60);
+  } else {
+    int now = mode == MODE_GRID ? gridRangeNow() : mode == MODE_SPECTRUM ? specRangeNow() : bsRangeNow();
+    if (now < cfg.span) now = cfg.span;
+    char t[40];
+    if (!cfg.specAutoRange) snprintf(t, sizeof(t), "Span %d dB", cfg.span);
+    else if (now > cfg.span) snprintf(t, sizeof(t), "Span auto %d dB (min %d)", now, cfg.span);
+    else snprintf(t, sizeof(t), "Span auto %d dB", now);
+    snprintf(s, sizeof(s), "%24s", t);             // fixed width: no leftovers when it shortens
   }
-  else if (cfg.specAutoRange) snprintf(s, sizeof(s), "Span auto");   // "Auto range" On
-  else snprintf(s, sizeof(s), "Span %d dB", cfg.span);
   lcdText(LCD_W - 6 * (int)strlen(s) - 4, FOOT_Y + 20, s, 1, C_DIM, C_BG);
 }
 

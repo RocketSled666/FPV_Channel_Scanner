@@ -120,12 +120,14 @@ Configuration).
   strong). Each channel's dB above the floor is printed
   under its number (blank below 3 dB, strongest in amber). The graph's
   height is the span (stronger signals are cut off at the top). With
-  "Auto range" On (Display page, default Off; also used by Band Scan and the Activity
-  grid's brightness scale; the footer then shows "Span auto") it
+  "Auto range" On (Auto Range page, default On; also used by Band Scan and the Activity
+  grid's brightness scale; the footer then shows the current scale, e.g.
+  "Span auto 70 dB (min 50)") it
   ranges itself instead: at
   least the span, and when a signal goes higher the top jumps to fit it
   (rounded up to 10 dB; the axis label shows it), then steps back down
-  10 dB at a time after 5 s without needing it. The waterfall always uses
+  "Drop step" (default 10 dB) at a time once "Hold time" (default 5 s) has
+  passed with no higher peak, never below the span (both on the Auto Range page). The waterfall always uses
   the span, so its colours mean the same from row to row (strong signals
   just saturate to yellow). Band buttons
   L E R A B F are a row above the graph, as wide as it (selected band in green).
@@ -211,7 +213,8 @@ bar ("Radio Page", "Display Page", ...), then a Save / Discard page. The "Config
 | Radio | RSSI only, Tuning (Direct, Wi-Fi, Wi-Fi+chan), RX filter (Auto, or 11-23 MHz), Max MHz (Off, or 5800-5995: channels and spectrum points above it are not measured), measurement timeout (ms), 802.11p mode |
 | Scanning | Samples per channel (grids), learn sweeps, spectrum step (MHz), spectrum samples per point |
 | Channel Selection | Busy level (dB); minimum history before Quietest opens (s); L Band Limit (1-8): most L-band channels in the Quietest lists and in each IMD-free set (8 = no limit); IMD min spacing (MHz), IMD use L band, IMD refresh (s) |
-| Display | Span (dB), auto range (Activity grid, Spectrum and Band Scan), Band Scan peak labels (Band, MHz, Both), Spectrum peak decay and waterfall log curve (0 = linear), Noise shading gamma and full-red spread (dB), Quietest / IMD moved-channel fade (ms, 0 = off) |
+| Display | Span (dB), Band Scan peak labels (Band, MHz, Both), Spectrum peak decay and waterfall log curve (0 = linear), Noise shading gamma and full-red spread (dB), Quietest / IMD moved-channel fade (ms, 0 = off) |
+| Auto Range | Auto range On/Off (default On; Activity grid, Spectrum and Band Scan: the scale grows to fit peaks), Hold time (s with no higher peak before the scale drops, default 5) and Drop step (dB per drop, default 10; shown only with Auto range On) |
 | Controls | Long press, Configuration hold, splash time, splash combo (ms); Last page (start on the last page shown, default On); pop-up time, scanning-dot step (ms), backlight (%) |
 
 - **KEY_L / KEY_R**: move up / down the list (past the end of a page goes to
@@ -225,7 +228,7 @@ bar ("Radio Page", "Display Page", ...), then a Save / Discard page. The "Config
 ## Buttons
 - **KEY_R / KEY_L**: next / previous page (order above), when released.
 - **KEY_L + KEY_R held 5 s**: open the Configuration menu from any page.
-- **ENTER (short)** on the grid: cycle the span (15-40 dB, default 15). It sets
+- **ENTER (short)** on the grid: cycle the span (25-50 dB in 5 dB steps, default 25). It sets
   the grid brightness scale and the spectrum's graph height (minimum with Auto range) and
   waterfall scale, and is remembered
   across power cycles.
@@ -438,10 +441,13 @@ Configuration menu pages.
 </tr>
 <tr>
 <td align="center"><img src="docs/screenshots/47%20Configuration%20-%20Display.png" width="320" alt="Configuration: Display"><br>Configuration: Display</td>
-<td align="center"><img src="docs/screenshots/48%20Configuration%20-%20Controls.png" width="320" alt="Configuration: Controls"><br>Configuration: Controls</td>
+<td align="center"><img src="docs/screenshots/48%20Configuration%20-%20Auto%20Range.png" width="320" alt="Configuration: Auto Range"><br>Configuration: Auto Range</td>
 </tr>
 <tr>
-<td align="center"><img src="docs/screenshots/49%20Configuration%20-%20Save%20-%20Discard.png" width="320" alt="Configuration: Save / Discard"><br>Configuration: Save / Discard</td>
-<td align="center"><img src="docs/screenshots/50%20Configuration%20-%20editing%20a%20value.png" width="320" alt="Configuration: editing a value"><br>Configuration: editing a value</td>
+<td align="center"><img src="docs/screenshots/49%20Configuration%20-%20Controls.png" width="320" alt="Configuration: Controls"><br>Configuration: Controls</td>
+<td align="center"><img src="docs/screenshots/50%20Configuration%20-%20Save%20-%20Discard.png" width="320" alt="Configuration: Save / Discard"><br>Configuration: Save / Discard</td>
+</tr>
+<tr>
+<td align="center"><img src="docs/screenshots/51%20Configuration%20-%20editing%20a%20value.png" width="320" alt="Configuration: editing a value"><br>Configuration: editing a value</td>
 </tr>
 </table>

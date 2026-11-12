@@ -1,6 +1,6 @@
 /*
  * FPV Channel Scanner - Settings.cpp
- * Revision: 101
+ * Revision: 102
  *
  * User settings: the values, their limits and defaults, loading them from
  * flash at start-up and saving them, plus helpers that depend on them.
@@ -15,7 +15,7 @@
 
 // Defaults here must match the "def" column of the table below.
 Settings cfg = {
-  15,    // span
+  25,    // span
   4,     // learnSweeps
   3,     // gridSamples   (1 when RSSI only is Off)
   4,     // specStep
@@ -50,9 +50,11 @@ Settings cfg = {
   MAX_MHZ_OFF,  // maxMhz
   TUNE_WIFI,    // tuneMode
   16,           // rxFilterMhz
-  0,            // specAutoRange
+  1,            // specAutoRange
   BS_LBL_BAND,  // bsLabel
   1,            // restorePage
+  5,            // rangeHoldS
+  10,           // rangeDropDb
 };
 
 const SettingDef SETTINGS[] = {
@@ -80,14 +82,16 @@ const SettingDef SETTINGS[] = {
   { "Channel Selection", "IMD min spacing",     "imdSep",    &cfg.imdMinSep,    20,  80,  1, 37, 0, 0, " MHz", "Smallest gap allowed between channels in a set" },
   { "Channel Selection", "IMD use L band",      "imdLow",    &cfg.imdLowBand,    0,   1,  1,  0, 1, 0, "",     "Allow L1-L8 (not used with a video system)" },
   { "Channel Selection", "IMD refresh",   "imdRefresh", &cfg.imdRefreshS,     2,    60,    1,   10, 0, 0, " s",  "How often IMD-free sets are re-picked" },
-  { "Display", "Span",            "span",      &cfg.span,          5,  60,  5, 15, 0, 0, " dB",  "Activity full brightness, Spectrum height" },
-  { "Display", "Auto range",      "specAuto",  &cfg.specAutoRange, 0,  1,  1,  0, 1, 0, "",     "Activity, Spectrum, Band Scan fit peaks" },
+  { "Display", "Span",            "span",      &cfg.span,         25,  50,  5, 25, 0, 0, " dB",  "Activity full brightness, Spectrum height" },
   { "Display", "Peak labels",     "bsLabel",   &cfg.bsLabel,    BS_LBL_BAND, BS_LBL_BOTH, 1, BS_LBL_BAND, 0, 0, "", "Band Scan: label on peaks over Busy level" },
   { "Display", "Peak decay",      "peakDecay", &cfg.peakDecay10,   2, 100,  2, 18, 0, 1, " px",  "Spectrum: peak-hold dot fall per sweep" },
   { "Display", "Waterfall log",   "wfLog",     &cfg.wfLogK,        0,  20,  1,  8, 0, 0, "",     "Spectrum waterfall: 0 = linear, higher = log" },
   { "Display", "Shading gamma",   "gamma",     &cfg.gamma100,     20, 100,  5, 55, 0, 2, "",     "Noise grid: below 1 brightens small diffs" },
   { "Display", "Full red spread", "redSpread", &cfg.redSpread10,   1,  50,  1,  5, 0, 1, " dB",  "Noise grid: spread shown as full red" },
   { "Display", "Move fade",     "moveFade",   &cfg.moveFadeMs,      0, 10000,  250, 3000, 0, 0, " ms", "Quietest/IMD: red fade on a moved channel" },
+  { "Auto Range", "Auto range",   "specAuto",   &cfg.specAutoRange, 0,     1,    1,    1, 1, 0, "",    "Activity, Spectrum, Band Scan fit peaks" },
+  { "Auto Range", "Hold time",    "rangeHold",  &cfg.rangeHoldS,     1,    60,    1,    5, 0, 0, " s",  "No higher peak this long: scale drops" },
+  { "Auto Range", "Drop step",    "rangeDrop",  &cfg.rangeDropDb,    5,    50,    5,   10, 0, 0, " dB", "How far each drop is (stops at the span)" },
   { "Controls", "Long press",    "longPress",  &cfg.longPressMs,   300, 2000,  100,  700, 0, 0, " ms", "ENTER held this long = long press" },
   { "Controls", "Config hold",   "cfgHold",    &cfg.configHoldMs, 2000, 10000, 1000, 5000, 0, 0, " ms", "Left + Right held this long opens Configuration" },
   { "Controls", "Splash time",   "splashMs",   &cfg.splashMs,        0, 10000,  500, 5000, 0, 0, " ms", "How long the start-up splash shows (0 = none)" },
@@ -180,6 +184,7 @@ bool settingVisible(int i) {
   const int *v = SETTINGS[i].value;
   if (v == &cfg.hdzLowBand || v == &cfg.hdzE1F1) return cfg.vidSys == VS_HDZERO;
   if (v == &cfg.djiModel)    return cfg.vidSys == VS_DJI;
+  if (v == &cfg.rangeHoldS || v == &cfg.rangeDropDb) return cfg.specAutoRange;   // only with Auto range On
   if (v == &cfg.wsRace)      return cfg.vidSys == VS_WALKSNAIL;
   if (v == &cfg.fccChannels) return (cfg.vidSys == VS_DJI && cfg.djiModel != DJI_O4_RACE) ||
                                     (cfg.vidSys == VS_WALKSNAIL && !cfg.wsRace);

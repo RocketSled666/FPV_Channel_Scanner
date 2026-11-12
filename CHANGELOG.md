@@ -2,6 +2,28 @@
 
 Revision numbers match the `Revision:` line in the source headers.
 
+## Revision 102
+- Span range 25-50 dB in 5 dB steps (Configuration was 5-60, ENTER on the
+  Activity grid cycled 15-40), default 25 (was 15). A saved span below 25 is
+  raised to 25 at start-up. Strong nearby signals no longer clip at the top
+  of the Spectrum / Band Scan graphs or the grid's brightness scale.
+- Configuration: the blue title bar shows the firmware revision ("Rev 102")
+  at its right end; a title too long to fit beside it ("Channel Selection
+  Page") is drawn slightly narrower.
+- New Auto Range Configuration page, after Display: "Auto range" (moved
+  from Display) plus "Hold time" (1-60 s, default 5: how long with no
+  higher peak before the scale drops) and "Drop step" (5-50 dB, default 10:
+  how far each drop is; never below the span). The two only show with Auto
+  range On. Used by the Activity grid, Spectrum and Band Scan (were fixed at
+  5 s and 10 dB).
+- Defaults: Span 25 dB and Auto range On (the scale starts at 25 dB and
+  grows to fit stronger signals). A board with saved settings keeps them
+  until Reset to defaults.
+- The span is shown at the bottom right of every page that uses it:
+  Activity, Spectrum and now Band Scan. With Auto range On it shows the
+  current scale and, when above it, the Span setting it won't drop below:
+  "Span auto 70 dB (min 50)", "Span auto 50 dB" (was just "Span auto").
+
 ## Revision 101
 - Band Scan follows the video system: the system's channels are measured at
   their own frequencies (in place of FPV channels within 6 MHz of them, e.g.

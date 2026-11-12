@@ -1,6 +1,6 @@
 /*
  * FPV Channel Scanner - Config.h
- * Revision: 101
+ * Revision: 102
  *
  * Hardware pins, tuning constants, shared types, frequency table, colors
  * and the undocumented ESP32-C5 radio access used by the scanner.
@@ -10,7 +10,7 @@
 
 // Firmware revision shown on the Save / Discard page. Keep it equal to the
 // "Revision:" line in the file headers.
-#define FW_REVISION 101
+#define FW_REVISION 102
 
 #include <Arduino.h>
 #include <Wire.h>
@@ -73,6 +73,8 @@ struct Settings {
   int specAutoRange; // Spectrum graph height grows to fit peaks (Off = fixed at the span)
   int bsLabel;       // Band Scan peak labels: BS_LBL_BAND, BS_LBL_MHZ or BS_LBL_BOTH
   int restorePage;   // start on the last page shown (Off = Activity grid)
+  int rangeHoldS;    // auto range: no higher peak for this long (s) -> the scale drops a step
+  int rangeDropDb;   // auto range: how far each drop is (dB), never below the span
 };
 
 // One line in the Configuration menu (Settings.cpp)
@@ -295,8 +297,7 @@ extern "C" void     phy_i2c_writeReg(unsigned block, unsigned host, unsigned reg
 #define WF_H      31                 // waterfall height (px) = sweeps of history
 #define C_BLOCKED  RGB{ 28, 28, 28 }   // spectrum columns above "Max MHz"
 #define SPEC_RANGE_STEP    10        // spectrum auto range: rounded up to this (dB)...
-#define SPEC_RANGE_MAX     100       // ...never above this...
-#define SPEC_RANGE_HOLD_MS 5000      // ...and shrinks one step after this long without needing it
+#define SPEC_RANGE_MAX     100       // ...never above this; it drops by "Drop step" after "Hold time" (Auto Range page)
 #define WF_Y      (GY + GH + 3)      // waterfall top, inside its white box under the graph
 #define CH_LBL_Y  (WF_Y + WF_H + 4)  // channel numbers under the waterfall box
 #define CH_VAL_Y  (CH_LBL_Y + 10)    // channel dB values under the numbers

@@ -1,6 +1,6 @@
 /*
  * FPV Channel Scanner - State.cpp
- * Revision: 101
+ * Revision: 102
  *
  * Definitions of all global state shared between the pages.
  */

@@ -1,6 +1,6 @@
 /*
  * FPV Channel Scanner - Page Spectrum.cpp
- * Revision: 101
+ * Revision: 102
  *
  * Spectrum page: continuous sweep across one band in SPEC_STEP_MHZ
  * steps, with channel markers, values and band buttons. The sweep point
@@ -79,7 +79,7 @@ static void wfDraw() {
 
 // Graph top (dB above floor): the Span setting, or with "Auto range" On at least the span;
 // grows at once to fit the highest point (rounded up to SPEC_RANGE_STEP), and
-// after SPEC_RANGE_HOLD_MS without needing that much, shrinks one step at a
+// after "Hold time" (Auto Range page) without needing that much, shrinks one step at a
 // time. The waterfall keeps the fixed Span so its colours stay comparable.
 static int      specRange = 0;
 static uint32_t specRangeNeedMs = 0;
@@ -103,14 +103,17 @@ static bool specUpdateRange(float maxAbove) {
   int old = specRange;
   if (!cfg.specAutoRange) specRange = need;              // fixed at the span; peaks clip at the top
   else if (need >= specRange) { specRange = need; specRangeNeedMs = now; }
-  else if (now - specRangeNeedMs >= SPEC_RANGE_HOLD_MS) {
-    specRange = max(need, specRange - SPEC_RANGE_STEP); specRangeNeedMs = now;
+  else if (now - specRangeNeedMs >= (uint32_t)cfg.rangeHoldS * 1000) {
+    specRange = max(need, specRange - cfg.rangeDropDb); specRangeNeedMs = now;
   }
   if (specRange == old) return false;
   for (int x = 0; x < GW; x++) colPeak[x] = colPeak[x] * old / specRange;
   specDrawAxis();
+  drawSpanLabel();                                     // footer: "Span auto 70 dB (min 50)"
   return true;
 }
+
+int specRangeNow() { return specRange; }
 
 int freqToCol(float mhz) {
   return (int)lroundf((mhz - specLo) * (GW - 1) / (float)(specHi - specLo));

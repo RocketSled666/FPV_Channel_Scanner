@@ -1,6 +1,6 @@
 /*
  * FPV Channel Scanner - Scanner.h
- * Revision: 101
+ * Revision: 102
  *
  * Shared declarations: every global variable (defined in State.cpp) and
  * every function, grouped by the file that defines it. Each .cpp file
@@ -172,6 +172,9 @@ void drawNoDataBox(int x, int y, int b, int c);   // grid box for a channel with
 void updateScanDots();
 void drawScanning(int y);
 void drawSpanLabel();
+int gridRangeNow();               // current scale top (dB) of the Activity grid...
+int specRangeNow();               // ...the Spectrum graph...
+int bsRangeNow();                 // ...and the Band Scan graph (the span, or more with Auto range)
 void drawLearnProgress(int footY, int pct);
 void drawTitleStatus(float sweepsPerSec, bool learning);
 ScreenMode pageAfter(ScreenMode m, int dir);

@@ -1,6 +1,6 @@
 /*
  * FPV Channel Scanner - Config Menu.cpp
- * Revision: 101
+ * Revision: 102
  *
  * Configuration menu, opened by holding KEY_L + KEY_R for CONFIG_HOLD_MS on
  * any page.
@@ -146,7 +146,14 @@ static void drawMenuHeader(int item, const Settings &saved) {
   lcdFillC(0, 26, LCD_W, 24, C_HDZ);
   char title[40];
   snprintf(title, sizeof(title), "%s Page", itemPage(item));   // e.g. "Help Page"
-  lcdText(8, 30, title, 2, RGB{ 255, 255, 255 }, C_HDZ);
+  snprintf(s, sizeof(s), "Rev %d", FW_REVISION);              // firmware revision, right end of the bar
+  const int revX = LCD_W - 6 * (int)strlen(s) - 4;
+  lcdText(revX, 34, s, 1, RGB{ 255, 255, 255 }, C_HDZ);
+  // Title; drawn narrower when it would run into the revision
+  // ("Channel Selection Page")
+  const int len = (int)strlen(title), room = revX - 8 - 6;
+  if (12 * len <= room) lcdText(8, 30, title, 2, RGB{ 255, 255, 255 }, C_HDZ);
+  else lcdTextSized(8, 30, title, room / len, 16, RGB{ 255, 255, 255 }, C_HDZ);
 }
 
 static void drawMenuRow(int item, int row, bool selected, bool editing) {
