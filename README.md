@@ -6,6 +6,8 @@ live activity, a per-band spectrum, long-term noise per channel and a ranked
 list of the quietest channels.
 
 ## Hardware
+<p align="center"><img src="docs/images/Board%20Splash.png" width="360" alt="The scanner's start-up splash on the Waveshare ESP32-C5-LCD-2.73"></p>
+
 - [Waveshare ESP32-C5-LCD-2.73](https://docs.waveshare.com/ESP32-C5-LCD-2.73):
   ESP32-C5, 2.73" 320x320 ILI9488 SPI LCD, three buttons (KEY_L, KEY_R,
   BOOT/ENTER). Nothing else is needed.
