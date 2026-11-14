@@ -1,6 +1,6 @@
 /*
  * FPV Channel Scanner - Page Band Scan.cpp
- * Revision: 102
+ * Revision: 103
  *
  * Band Scan page, modelled on the ArduVidRx band scanner: one sweep over
  * the whole 5.3-6.0 GHz band, measuring every FPV channel frequency plus
@@ -23,6 +23,10 @@ static int      bsPts = 0;
 static float    bsSmooth[BS_MAX_PTS];
 static float    bsFloor[BS_MAX_PTS];     // 0 = not learned
 static float    bsAbove[BS_MAX_PTS];     // smoothed dB above floor, last sweep
+static float    bsPeakAvg[BS_MAX_PTS];   // slow average of bsAbove, for the Peak line
+static int      bsFootPt = -1;           // point named on the Peak line, -1 = none
+static int      bsFootBest = -1;         // strongest point behind it (serial report)
+static float    bsFootCentre = 0;        // weighted centre of that signal, MHz
 static bool     bsNoSeedOnce = false;    // ENTER-hold re-learn: start from scratch
 static uint32_t bsSweeps = 0, bsLearnUntil = 0;
 bool     bsPaused = false;          // ENTER: Hold (read by drawPageHints); kept when the page is left
@@ -34,6 +38,7 @@ static int16_t bsBinPtN[BS_BINS];        // points in the bin
 static int16_t bsBinNear[BS_BINS];       // empty bin inside the sweep: nearest point, -1 = blank
 static int16_t bsShownH[BS_BINS];        // bar height drawn, -1 = redraw, -3 = grey (blocked)
 static int8_t  bsShownKind[BS_BINS];    // colour drawn: 0 green, 1 red (busy), 2 yellow (strongest)
+static uint8_t bsBusyRun[BS_BINS];       // sweeps in a row with a raw reading at or above Busy level
 
 // ---------------------------------------------------------------- peak labels
 struct BsLabel { int16_t x, y, ht, k, barX, barY; uint16_t mhz; };   // vertical text BS_VLBL_W wide, ht tall;
@@ -75,6 +80,7 @@ static void bsBuildPoints() {
   for (int i = 0; i < sysCount(); i++) ch[n++] = sysChan(i)->mhz;   // video system channels
   for (int i = 1; i < n; i++) { uint16_t k = ch[i]; int j = i - 1; while (j >= 0 && ch[j] > k) { ch[j + 1] = ch[j]; j--; } ch[j + 1] = k; }
   bsPts = 0;
+  for (int i = 0; i < BS_MAX_PTS; i++) bsFloor[i] = 0;    // new points: no floor yet
   uint16_t prev = ch[0] - BS_EDGE_MHZ;
   bsAddPt(prev);
   for (int k = 0; k <= n; k++) {
@@ -113,17 +119,26 @@ static void bsBuildPoints() {
 
 // Start learning again on the next visit (the grid floor was reset).
 
+// One reading into a point's floor (0 = none yet): averaged while learning,
+// then following the BS_FLOOR_Q quantile of the readings.
+static void bsFloorUpdate(float &f, float v, bool learning) {
+  if (f == 0) f = v;
+  else if (learning) f += 0.5f * (v - f);
+  else if (v < f) f -= BS_FLOOR_STEP_DB * (1.0f - BS_FLOOR_Q);
+  else f += BS_FLOOR_STEP_DB * BS_FLOOR_Q;
+}
+
 // Floor from the learned grid floor, or learn it from scratch.
 static void bsSeedFloor() {
-  // Floor from the shared floor (learned here or on another page). Learns
-  // only for an ENTER-hold re-learn or when too many points have nothing
-  // to start from.
+  // Keeps the page's own floor; a point with none starts from the shared
+  // floor (other pages' floors). Learns only for an ENTER-hold re-learn or
+  // when too many points have nothing to start from.
   int need = 0, unknown = 0;
   for (int i = 0; i < bsPts; i++) {
-    bsFloor[i] = 0;
+    if (bsNoSeedOnce || mhzBlocked(bsMhz[i])) bsFloor[i] = 0;
     if (mhzBlocked(bsMhz[i])) continue;
     need++;
-    bsFloor[i] = bsNoSeedOnce ? 0 : floorKnownAt(bsMhz[i]);
+    if (bsFloor[i] == 0 && !bsNoSeedOnce) bsFloor[i] = floorKnownAt(bsMhz[i]);
     if (bsFloor[i] == 0) unknown++;
   }
   if (bsNoSeedOnce || unknown * FLOOR_LEARN_DIV > need) bsLearnUntil = bsSweeps + SPEC_LEARN_SWEEPS;
@@ -250,8 +265,10 @@ void bscanEnter() {
     bscanDrawStatic();
     return;
   }
-  for (int i = 0; i < bsPts; i++) { bsSmooth[i] = NAN; bsAbove[i] = 0; }
-  bsSeedFloor();                                     // every time: picks up other pages' floors
+  for (int i = 0; i < bsPts; i++) { bsSmooth[i] = NAN; bsAbove[i] = 0; bsPeakAvg[i] = 0; }
+  bsFootPt = -1; bsFootBest = -1;
+  for (int k = 0; k < BS_BINS; k++) bsBusyRun[k] = 0;
+  bsSeedFloor();                                     // every time: fills points with no floor yet
   bscanDrawStatic();
 }
 
@@ -380,8 +397,7 @@ void bscanSweep() {
     if (isnan(s)) s = v;
     else s += (v > s ? 0.6f : 0.3f) * (v - s);
     if (fb[i]) continue;                   // fallback readings never set the floor
-    if (bsFloor[i] == 0 || v < bsFloor[i]) bsFloor[i] = v;
-    else if (!learning) bsFloor[i] += 0.01f;
+    bsFloorUpdate(bsFloor[i], v, learning);
   }
   // anti-learn clamp: no floor more than 4 dB above the median learned floor
   { float tmp[BS_MAX_PTS]; int n = 0;
@@ -391,10 +407,10 @@ void bscanSweep() {
       float med = tmp[n / 2];
       for (int i = 0; i < bsPts; i++) if (bsFloor[i] > med + 4.0f) bsFloor[i] = med + 4.0f;
     } }
-  if (!learning)                                     // learned: share it with the other pages
-    for (int i = 0; i < bsPts; i++) floorStore(bsMhz[i], bsFloor[i]);
+  // not stored in the shared floor: the other pages keep their own rule
   for (int i = 0; i < bsPts; i++)
     bsAbove[i] = (isnan(bsSmooth[i]) || bsFloor[i] == 0) ? 0 : max(0.0f, bsSmooth[i] - bsFloor[i]);
+  for (int i = 0; i < bsPts; i++) bsPeakAvg[i] += BS_PEAK_AVG_K * (bsAbove[i] - bsPeakAvg[i]);
   }   // !redrawOnly
 
   uint32_t tDraw0 = micros();
@@ -415,14 +431,30 @@ void bscanSweep() {
     if (!binBlocked[k] && p >= 0) mx = max(mx, bsAbove[p]);
   }
   bool rangeChanged = bsUpdateRange(mx);
+  // sustained: this sweep's raw reading (not the smoothed bar) at or above
+  // Busy level for BS_BUSY_SWEEPS sweeps in a row, and the bar still is
+  bool sus[BS_BINS];
+  for (int k = 0; k < bsBins; k++) {
+    if (!redrawOnly) {
+      bool hit = false;
+      int i0 = bsBinPtN[k] > 0 ? bsBinPt0[k] : bsBinNear[k], n = bsBinPtN[k] > 0 ? bsBinPtN[k] : (i0 >= 0 ? 1 : 0);
+      for (int j = 0; j < n && !hit; j++) {
+        int i = i0 + j;
+        hit = !isnan(raw[i]) && bsFloor[i] != 0 && raw[i] - bsFloor[i] >= BS_PEAK_MIN_DB;
+      }
+      if (!hit || binBlocked[k]) bsBusyRun[k] = 0;
+      else if (bsBusyRun[k] < 255) bsBusyRun[k]++;
+    }
+    sus[k] = bsBusyRun[k] >= BS_BUSY_SWEEPS && val[k] >= BS_PEAK_MIN_DB;
+  }
 
-  // strongest bar; a run of 3+ equal bars picks its centre
+  // strongest sustained bar; a run of 3+ equal bars picks its centre
   int hot = -1;
   { int best = -1, bestV = BS_PEAK_MIN_DB - 1;
-    for (int k = 0; k < bsBins; k++) if (val[k] > bestV) { bestV = val[k]; best = k; }
+    for (int k = 0; k < bsBins; k++) if (sus[k] && val[k] > bestV) { bestV = val[k]; best = k; }
     if (best >= 0) {
       int j = best;
-      while (j < bsBins - 1 && val[j + 1] == bestV) j++;
+      while (j < bsBins - 1 && sus[j + 1] && val[j + 1] == bestV) j++;
       if (j - best >= 3) best += (j - best) / 2;
       hot = best;
     } }
@@ -433,15 +465,16 @@ void bscanSweep() {
   int h[BS_BINS];
   for (int k = 0; k < bsBins; k++)
     h[k] = (binPt[k] < 0 || binBlocked[k]) ? 0 : constrain((int)lroundf(bsAbove[binPt[k]] * BS_GH / bsRange), 0, BS_GH);
-  // Labels: every bar on a channel frequency at or above Busy level (the red
-  // bars, and the yellow one when it's on a channel). Peaks between channels
+  // Labels: every bar on a channel frequency at or above Busy level for
+  // BS_BUSY_SWEEPS sweeps (the red bars, and the yellow one when it's on a
+  // channel). Peaks between channels
   // aren't labelled. Placed strongest first:
   // just above the bar if free, else stacked higher (then lower, over other
   // bars) so adjacent bars all keep a label; a lifted label gets a dotted
   // leader down to its bar.
   int cand[2 * BS_BINS], nCand = 0;
   for (int k = 0; k < bsBins; k++)                  // channel bars only: a peak between
-    if (!binBlocked[k] && binPt[k] >= 0 && val[k] >= BS_PEAK_MIN_DB &&   // channels gets no label
+    if (!binBlocked[k] && binPt[k] >= 0 && sus[k] &&   // channels gets no label
         bsIsChannel(bsMhz[binPt[k]])) cand[nCand++] = k;
   for (int a = 0; a < nCand; a++)                    // one label per frequency
     for (int b = a + 1; b < nCand; b++)
@@ -507,10 +540,10 @@ void bscanSweep() {
       continue;
     }
     bool isHot = k == hot;
-    const int kind = isHot ? 2 : (val[k] >= BS_PEAK_MIN_DB && bsIsChannel(bsMhz[binPt[k]])) ? 1 : 0;
+    const int kind = isHot ? 2 : (sus[k] && bsIsChannel(bsMhz[binPt[k]])) ? 1 : 0;
     if (h[k] == bsShownH[k] && kind == bsShownKind[k] && !under) continue;
-    // strongest bar yellow (like the footer); at or above Busy level and on a
-    // channel frequency red (a fill-in point between channels stays green);
+    // strongest sustained bar yellow (like the footer); at or above Busy
+    // level for BS_BUSY_SWEEPS sweeps and on a channel frequency red (a fill-in point between channels stays green);
     // the rest green like the Activity grid; red and green brighter the taller
     // (stronger) they are, never quite black
     const float lvl = BS_BAR_MIN + (1.0f - BS_BAR_MIN) * h[k] / BS_GH;
@@ -550,9 +583,39 @@ void bscanSweep() {
   }   // !redrawOnly
   wfDrawBs();
 
-  // footer: the strongest bar's point, or Scanning / Learning
-  int peakPt = hot >= 0 ? binPt[hot] : -1;
-  float peakDb = peakPt >= 0 ? bsAbove[peakPt] : 0;
+  // footer (Peak line), from the slow averages: the strongest point at or
+  // above Busy level; the power-weighted centre of the points within
+  // BS_PEAK_SPAN_MHZ of it; named as the channel nearest that centre (within
+  // BS_PEAK_SNAP_MHZ, itself at or above Busy level), else the strongest
+  // point. Same signal: moves to a channel only when it is BS_PEAK_HYST_MHZ
+  // closer to the centre. Another signal: only when BS_PEAK_SWITCH_DB stronger.
+  { int best = -1;
+    for (int i = 0; i < bsPts; i++)
+      if (!mhzBlocked(bsMhz[i]) && bsPeakAvg[i] >= BS_PEAK_MIN_DB && (best < 0 || bsPeakAvg[i] > bsPeakAvg[best])) best = i;
+    if (best < 0 || bsFootPt >= bsPts || (bsFootPt >= 0 && bsPeakAvg[bsFootPt] < BS_PEAK_MIN_DB)) bsFootPt = -1;
+    bsFootBest = best;
+    if (best >= 0) {
+      float sw = 0, swf = 0;
+      for (int i = 0; i < bsPts; i++) {
+        if (mhzBlocked(bsMhz[i]) || abs((int)bsMhz[i] - (int)bsMhz[best]) > BS_PEAK_SPAN_MHZ) continue;
+        float w = powf(10.0f, bsPeakAvg[i] / 10.0f);
+        sw += w; swf += w * bsMhz[i];
+      }
+      const float c = swf / sw;
+      bsFootCentre = c;
+      int cand = best; float cd = 1e9f;
+      for (int i = 0; i < bsPts; i++) {
+        float d = fabsf(bsMhz[i] - c);
+        if (bsIsChannel(bsMhz[i]) && !mhzBlocked(bsMhz[i]) && bsPeakAvg[i] >= BS_PEAK_MIN_DB &&
+            d <= BS_PEAK_SNAP_MHZ && d < cd) { cd = d; cand = i; }
+      }
+      if (bsFootPt < 0) bsFootPt = cand;
+      else if (abs((int)bsMhz[bsFootPt] - (int)bsMhz[best]) <= BS_PEAK_SPAN_MHZ) {    // same signal
+        if (cand != bsFootPt && fabsf(bsMhz[cand] - c) + BS_PEAK_HYST_MHZ < fabsf(bsMhz[bsFootPt] - c)) bsFootPt = cand;
+      } else if (bsPeakAvg[best] >= bsPeakAvg[bsFootPt] + BS_PEAK_SWITCH_DB) bsFootPt = cand;   // another signal
+    } }
+  int peakPt = bsFootPt;
+  float peakDb = peakPt >= 0 ? bsPeakAvg[peakPt] : 0;
   int aboveR = peakPt >= 0 ? (int)lroundf(peakDb) : -1;
   if (learning) {
     drawLearnProgress(BS_FOOT_Y, (bsSweeps - learnStart) * 100 / SPEC_LEARN_SWEEPS);
@@ -578,6 +641,13 @@ void bscanSweep() {
     if (serialHasRoom(600)) {
       Serial.printf("band scan %d pts, %.1f sweeps/s, peak %u MHz %.1f dB, %d labels\n",
                     bsPts, sps, peakPt >= 0 ? bsMhz[peakPt] : 0, peakDb, nPeak);
+      if (bsFootBest >= 0) {                          // the Peak line's signal: centre and the averages it came from
+        Serial.printf("  peak centre %.1f MHz:", bsFootCentre);
+        for (int i = 0; i < bsPts; i++)
+          if (abs((int)bsMhz[i] - (int)bsMhz[bsFootBest]) <= BS_PEAK_SPAN_MHZ)
+            Serial.printf(" %u%s=%.1f", bsMhz[i], bsIsChannel(bsMhz[i]) ? "" : "*", bsPeakAvg[i]);
+        Serial.println("  (* = between channels)");
+      }
       printTiming(sweepsThisPeriod);
       printRssiStats();
       printStalls();

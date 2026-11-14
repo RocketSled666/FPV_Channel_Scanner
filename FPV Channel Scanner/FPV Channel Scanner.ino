@@ -1,6 +1,6 @@
 /*
  * FPV Channel Scanner
- * Revision: 102
+ * Revision: 103
  * Board : Waveshare ESP32-C5-LCD-2.73 (ESP32-C5, ILI9488 320x320 SPI LCD)
  * Core  : Arduino-ESP32 3.3.x  (Tools > Board > "ESP32C5 Dev Module")
  *
@@ -285,6 +285,11 @@
  *       Span shown bottom right on Activity, Band Scan and Spectrum; with Auto
  *       range On as "Span auto 70 dB (min 50)" (the current scale and the
  *       Span setting it never drops below)
+ *  103  Band Scan: own floor following the median of the readings (averaged
+ *       while learning), kept between visits and not shared; red and
+ *       labels need a reading at or above Busy level on 3 sweeps in a row;
+ *       Peak line from a slow average, naming the channel nearest the
+ *       signal's power-weighted centre, moving only for a 3 dB stronger signal
  */
 
 #include "Scanner.h"
