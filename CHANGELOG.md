@@ -2,6 +2,38 @@
 
 Revision numbers match the `Revision:` line in the source headers.
 
+## Revision 103
+- Band Scan's noise floor no longer tracks the lowest reading ever seen.
+  With RSSI only (1 dB steps, quiet readings spread over 10-15 dB) one low
+  reading set the floor, and ordinary noise then sat 6-10 dB above it: Band
+  Scan showed 13-15 noise channels red at the default Busy level. Its floor
+  is now the average of the learning readings, then follows the median of
+  the readings (0.2 dB down for a lower reading, 0.2 dB up for any other;
+  bsFloorUpdate() in Page Band Scan.cpp, BS_FLOOR_Q and BS_FLOOR_STEP_DB in
+  Config.h). The median + 4 dB clamp still keeps a VTX from being learned
+  as floor.
+- Band Scan keeps its floor between visits and no longer stores it in the
+  shared floor; points it hasn't learned (first visit, or new points after
+  a video system change) start from the shared floor. The Activity grid,
+  Spectrum, Noise, Quietest and IMD-Free pages are unchanged.
+- Band Scan: a bar turns red, gets a label or becomes the yellow peak only
+  after a reading at or above Busy level on 3 sweeps in a row
+  (BS_BUSY_SWEEPS), and only while the bar is still at or above it. Short
+  bursts (e.g. Wi-Fi) stay green, and so does a bar settling after one.
+  In a bench test busy labels went from 13-15 per second to 0-1.
+- Band Scan Peak line: uses a slow average of each point (BS_PEAK_AVG_K,
+  about 1.5 s) instead of the latest smoothed bar, needs that average at or
+  above Busy level, and moves to another point only when its average beats
+  the current one by BS_PEAK_SWITCH_DB (3 dB). It names the channel nearest
+  the signal's centre: the power-weighted average frequency of the points
+  within BS_PEAK_SPAN_MHZ (15) of the strongest, snapped to a channel within
+  BS_PEAK_SNAP_MHZ (8) that is itself at or above Busy level (else the
+  strongest point), moving to a closer channel only when it is
+  BS_PEAK_HYST_MHZ (2) closer. A VTX on R1 was named as the fill-in point at
+  5651 or as E3 (5665). The dB shown is the named point's own. The serial
+  report adds "peak centre ... MHz:" with the averages it used. The yellow
+  bar is unchanged.
+
 ## Revision 102
 - Span range 25-50 dB in 5 dB steps (Configuration was 5-60, ENTER on the
   Activity grid cycled 15-40), default 25 (was 15). A saved span below 25 is

@@ -93,14 +93,22 @@ Configuration).
   scale below that) on a
   5300-6000 MHz axis. With "Max MHz" set, the axis ends there instead and
   the bars widen to fill the graph. Bars at or above "Busy level" (6 dB by
-  default, the same setting as the Noise and Quietest pages) are red when
+  default, the same setting as the Noise and Quietest pages), with a reading
+  at or above it on each of the last 3 sweeps (so a short burst, or a bar
+  still settling after one, stays green), are red when
   the bar's point is a channel frequency (a fill-in point between channels
   stays green), the rest green, both brighter the stronger they are. With a
   video system selected, its channels are measured at their own
   frequencies (replacing FPV channels within 6 MHz of them), only they turn
   red, and labels and the Peak line use their names (CH4, 153); the strongest bar is
-  yellow (the footer colour) and the footer names it, e.g. "Peak: F1 5740
-  MHz 22 dB". Every bar on a channel frequency at or above Busy level (the
+  yellow (the footer colour) and the footer names the strongest signal, e.g.
+  "Peak: F1 5740 MHz 22 dB". The footer uses a slower average (about 1.5 s)
+  and only moves to another frequency when its average is 3 dB stronger, so
+  it can lag the yellow bar a little but doesn't jump about. It names the
+  channel nearest the signal's centre (the power-weighted average frequency
+  of the points within 15 MHz of the strongest), so a VTX on R1 is named R1
+  5658 even when the fill-in point at 5651 or E3 at 5665 reads a little
+  higher. The serial report shows that centre and the readings it came from. Every bar on a channel frequency at or above Busy level (the
   red bars, and the yellow one when it's on a channel) gets a label; peaks
   between channels don't. Labels are one line of text turned 90
   degrees (reading upward): the channel ("F1", the default), the frequency
@@ -272,6 +280,12 @@ edge above PWR (power, not used by the scanner). USB-C is on the bottom edge.
   Scan (1 reading per point) sit a little lower than the grid's (3 per
   channel), so a grid seeded from them can show quiet channels 1-2 dB above
   the floor until it settles (it creeps up 0.01 dB a sweep).
+- Band Scan keeps a floor of its own: the average of each point's readings
+  while learning, then the median of its readings (0.2 dB down for a lower
+  reading, 0.2 dB up for any other), so one unusually low reading can't pull
+  it down and leave ordinary noise showing as busy. It starts points it
+  hasn't learned from the shared floor, but doesn't store its floor there,
+  so the other pages keep their own (lowest reading) floors.
 - Serial monitor (115200) prints readings once per second.
 
 ## How it works

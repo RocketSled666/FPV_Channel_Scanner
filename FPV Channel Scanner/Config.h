@@ -1,6 +1,6 @@
 /*
  * FPV Channel Scanner - Config.h
- * Revision: 102
+ * Revision: 103
  *
  * Hardware pins, tuning constants, shared types, frequency table, colors
  * and the undocumented ESP32-C5 radio access used by the scanner.
@@ -10,7 +10,7 @@
 
 // Firmware revision shown on the Save / Discard page. Keep it equal to the
 // "Revision:" line in the file headers.
-#define FW_REVISION 102
+#define FW_REVISION 103
 
 #include <Arduino.h>
 #include <Wire.h>
@@ -189,6 +189,13 @@ struct ButtonState {
 #define FLOOR_N           700
 #define FLOOR_REACH_MHZ   40
 #define FLOOR_LEARN_DIV   8
+// Band Scan floor (bsFloorUpdate): while learning, the average of the
+// readings; after that it follows the BS_FLOOR_Q quantile of the readings,
+// moving BS_FLOOR_STEP_DB * (1 - BS_FLOOR_Q) down for a lower reading and
+// BS_FLOOR_STEP_DB * BS_FLOOR_Q up for any other. Other pages keep the
+// lowest reading (rising 0.01 dB a sweep).
+#define BS_FLOOR_Q        0.5f
+#define BS_FLOOR_STEP_DB  0.4f
 
 // ---------------------------------------------------------------- FPV table
 #define NUM_BANDS 6
@@ -323,6 +330,12 @@ extern "C" void     phy_i2c_writeReg(unsigned block, unsigned host, unsigned reg
 #define LEGEND_Y       (LCD_H - 18)      // "Long press ENTER: ..." legend, just above the button hints
 #define HINT_Y         (LCD_H - 8)       // button hints "Left: ...  ENTER: ...  Right: ...", bottom line of every page
 #define BS_PEAK_MIN_DB ((int)cfg.busyDb)  // Busy level: bars this far above the floor turn red and get a label
+#define BS_BUSY_SWEEPS 3                 // ...after this many sweeps in a row at or above it
+#define BS_PEAK_AVG_K  0.15f             // Peak line: per-sweep weight of each point's slow average (~1.5 s)
+#define BS_PEAK_SWITCH_DB 3.0f           // Peak line moves to another point only when it beats this one by this much
+#define BS_PEAK_SPAN_MHZ 15               // Peak line: points this close to the strongest give the signal's centre
+#define BS_PEAK_SNAP_MHZ 8                // ...named as the channel nearest that centre, if within this
+#define BS_PEAK_HYST_MHZ 2.0f            // ...changing to a closer channel only when closer by more than this
 #define BS_LBL_BAND    0                 // "Peak labels": channel name ("F1"; MHz if none)
 #define BS_LBL_MHZ     1                 //   frequency ("5740")
 #define BS_LBL_BOTH    2                 //   both on one line ("F1 5740")
